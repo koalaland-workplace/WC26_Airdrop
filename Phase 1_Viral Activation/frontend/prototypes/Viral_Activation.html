@@ -1552,94 +1552,173 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .pique-q-btn:active{transform:scale(.97);}
 .pique-q-btn:hover{background:rgba(30,136,229,.16);border-color:rgba(30,136,229,.55);}
 .pique-stage{
-  width:min(76vw,250px);
-  margin:4px auto 12px;
+  width:min(52vw,170px);
+  margin:2px auto 10px;
   position:relative;
-  aspect-ratio:1.35/1;
+  aspect-ratio:1.25/1;
   display:flex;
   align-items:center;
   justify-content:center;
+  pointer-events:none;
+}
+.pique-goal{
+  position:absolute;
+  top:-2px;
+  left:50%;
+  transform:translateX(-50%);
+  font-family:var(--font-display);
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.8px;
+  color:var(--c-yellow);
+  text-shadow:0 0 10px rgba(245,197,66,.45);
+  animation:piqueCheer 1.8s ease-in-out infinite;
 }
 .pique-orbit{
   position:absolute;
-  inset:2px;
-  border-radius:52% 48% 54% 46% / 44% 56% 46% 54%;
-  border:3px solid transparent;
-  background:linear-gradient(#0d1624,#0d1624) padding-box,conic-gradient(from 30deg,#4e8fff,#8f7cff,#ff6b54,#f5c542,#35d0b0,#4e8fff) border-box;
-  opacity:.9;
-  animation:piqueOrbit 7s linear infinite;
+  inset:12px 8px 3px;
+  border-radius:52% 48% 54% 46% / 46% 54% 48% 52%;
+  border:2px solid transparent;
+  background:linear-gradient(#0f1928,#0f1928) padding-box,conic-gradient(from 40deg,#4e8fff,#8f7cff,#ff6b54,#f5c542,#35d0b0,#4e8fff) border-box;
+  opacity:.92;
+  animation:piqueOrbit 8s linear infinite;
 }
 .pique-core{
   position:relative;
-  width:68%;
+  width:58%;
   aspect-ratio:1/1;
   border-radius:50%;
   display:flex;
   flex-direction:column;
   align-items:center;
   justify-content:center;
-  background:radial-gradient(circle at 34% 28%,#3c4ff0 0%,#2d246f 46%,#19143c 100%);
-  border:2px solid rgba(147,143,255,.75);
-  box-shadow:0 14px 30px rgba(24,39,84,.46),0 0 20px rgba(83,117,255,.25);
-  animation:piqueFloat 2.8s ease-in-out infinite;
+  background:radial-gradient(circle at 34% 28%,#4d61ff 0%,#322884 48%,#1a1540 100%);
+  border:2px solid rgba(168,159,255,.8);
+  box-shadow:0 10px 22px rgba(22,35,84,.42),0 0 16px rgba(87,132,255,.24);
+  animation:piqueFloat 2.6s ease-in-out infinite;
+}
+.pique-hat{
+  position:absolute;
+  top:-10px;
+  left:50%;
+  transform:translateX(-50%);
+  width:34px;
+  height:14px;
+  border-radius:10px 10px 6px 6px;
+  background:linear-gradient(90deg,var(--c-green) 0 33%,var(--c-yellow) 33% 66%,var(--c-green) 66% 100%);
+  box-shadow:0 3px 7px rgba(0,0,0,.25);
+}
+.pique-hat::before{
+  content:'';
+  position:absolute;
+  top:-4px;
+  left:50%;
+  transform:translateX(-50%);
+  width:16px;
+  height:6px;
+  border-radius:6px;
+  background:#f4f8ff;
 }
 .pique-face{
   position:relative;
-  width:78%;
+  width:80%;
   aspect-ratio:1/1;
   border-radius:50%;
-  border:2px solid rgba(150,141,255,.58);
-  background:radial-gradient(circle at 40% 30%,rgba(116,119,255,.16),rgba(0,0,0,.2));
+  border:2px solid rgba(159,150,255,.58);
+  background:radial-gradient(circle at 40% 30%,rgba(136,139,255,.18),rgba(0,0,0,.2));
 }
 .pique-eye{
   position:absolute;
-  top:34%;
-  width:12px;
-  height:12px;
+  top:35%;
+  width:10px;
+  height:10px;
   border-radius:50%;
-  background:#dbf9ff;
-  box-shadow:0 0 12px rgba(171,241,255,.95);
+  background:#e2fbff;
+  box-shadow:0 0 10px rgba(171,241,255,.9);
   animation:piqueBlink 4s infinite;
   transform-origin:center;
+}
+.pique-eye::after{
+  content:'';
+  position:absolute;
+  inset:3px;
+  border-radius:50%;
+  background:#74b6ff;
 }
 .pique-eye.left{left:28%;}
 .pique-eye.right{right:28%;animation-delay:.16s;}
 .pique-mouth{
   position:absolute;
   left:50%;
-  bottom:28%;
-  width:34px;
-  height:14px;
-  border:3px solid #32d87a;
+  bottom:30%;
+  width:28px;
+  height:12px;
+  border:3px solid #38dd7f;
   border-top:0;
   border-left-color:transparent;
   border-right-color:transparent;
-  border-radius:0 0 20px 20px;
+  border-radius:0 0 18px 18px;
   transform:translateX(-50%);
-  filter:drop-shadow(0 0 6px rgba(50,216,122,.45));
+  filter:drop-shadow(0 0 6px rgba(56,221,127,.44));
 }
 .pique-cheek{
   position:absolute;
   right:18%;
   top:46%;
-  width:11px;
-  height:26px;
-  border-radius:12px;
+  width:9px;
+  height:20px;
+  border-radius:10px;
   background:linear-gradient(180deg,#fbd44f,#eeb12e);
-  box-shadow:0 0 8px rgba(251,212,79,.5);
+  box-shadow:0 0 8px rgba(251,212,79,.45);
+}
+.pique-scarf{
+  position:absolute;
+  left:50%;
+  bottom:-9px;
+  transform:translateX(-50%);
+  width:42px;
+  height:11px;
+  border-radius:9px;
+  background:linear-gradient(90deg,#ef4545 0 48%,#f5f7ff 48% 52%,#ef4545 52% 100%);
+  box-shadow:0 3px 7px rgba(0,0,0,.22);
+}
+.pique-scarf::before,
+.pique-scarf::after{
+  content:'';
+  position:absolute;
+  bottom:-7px;
+  width:8px;
+  height:11px;
+  border-radius:4px;
+  background:linear-gradient(180deg,#ef4545,#bb2f2f);
+}
+.pique-scarf::before{left:6px;}
+.pique-scarf::after{right:6px;}
+.pique-ball{
+  position:absolute;
+  right:-9px;
+  bottom:8px;
+  width:16px;
+  height:16px;
+  border-radius:50%;
+  background:radial-gradient(circle at 30% 28%,#ffffff 0 30%,#d9e0ea 40%,#8793a7 100%);
+  border:1px solid rgba(255,255,255,.55);
+  box-shadow:0 2px 7px rgba(0,0,0,.32);
+  animation:piqueBallKick 1.9s ease-in-out infinite;
 }
 .pique-tag{
-  margin-top:8px;
-  min-width:92px;
+  margin-top:6px;
+  min-width:74px;
   text-align:center;
-  padding:7px 12px;
-  border-radius:12px;
+  padding:5px 10px;
+  border-radius:10px;
   font-family:var(--font-display);
   font-weight:800;
-  letter-spacing:1px;
+  font-size:10px;
+  letter-spacing:.8px;
   color:#e8f1ff;
   background:linear-gradient(135deg,#7a39ff,#5d23dd);
-  box-shadow:0 8px 16px rgba(64,36,160,.42);
+  box-shadow:0 6px 14px rgba(64,36,160,.4);
 }
 .ai-input-row{display:flex;gap:8px;}
 .ai-input{
@@ -1666,8 +1745,10 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 }
 .ai-response.show{display:block;}
 @keyframes piqueOrbit{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-@keyframes piqueFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
-@keyframes piqueBlink{0%,44%,46%,92%,100%{transform:scaleY(1)}45%,93%{transform:scaleY(.2)}}
+@keyframes piqueFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes piqueBlink{0%,44%,46%,92%,100%{transform:scaleY(1)}45%,93%{transform:scaleY(.24)}}
+@keyframes piqueBallKick{0%,100%{transform:translate(0,0) rotate(0deg)}50%{transform:translate(4px,-5px) rotate(16deg)}}
+@keyframes piqueCheer{0%,100%{opacity:.62;transform:translateX(-50%) translateY(0) scale(.96)}50%{opacity:1;transform:translateX(-50%) translateY(-2px) scale(1.04)}}
 
 /* ── SPIN (REFRESHED FROM WC26_MiniApp) ── */
 .spin-cta{
@@ -2746,14 +2827,18 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       </div>
 
       <div class="pique-stage" aria-hidden="true">
+        <div class="pique-goal">GOAL! GOAL!</div>
         <div class="pique-orbit"></div>
         <div class="pique-core">
+          <span class="pique-hat"></span>
           <div class="pique-face">
             <span class="pique-eye left"></span>
             <span class="pique-eye right"></span>
             <span class="pique-mouth"></span>
             <span class="pique-cheek"></span>
           </div>
+          <span class="pique-scarf"></span>
+          <span class="pique-ball"></span>
           <div class="pique-tag">PIQUE</div>
         </div>
       </div>
