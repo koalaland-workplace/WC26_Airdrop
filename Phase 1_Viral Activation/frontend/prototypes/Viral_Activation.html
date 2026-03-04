@@ -3204,6 +3204,7 @@ var API_BASE=(localStorage.getItem('wc26_api_base')||'http://localhost:8787').re
 var API_SESSION_KEY='wc26_api_session_id_v1';
 var API_SESSION_ID=localStorage.getItem(API_SESSION_KEY)||('wc26_web_'+Math.random().toString(36).slice(2,10));
 localStorage.setItem(API_SESSION_KEY,API_SESSION_ID);
+var API_TIMEOUT_MS=Math.max(800,Math.floor(Number(localStorage.getItem('wc26_api_timeout_ms')||2200)||2200));
 
 function apiUrl(path){
   return API_BASE+path;
@@ -3216,14 +3217,35 @@ async function apiRequest(method,path,payload){
   }
   var opt={method:method,headers:{'content-type':'application/json'}};
   if(payload&&method!=='GET') opt.body=JSON.stringify(payload);
-  var res=await fetch(apiUrl(path),opt);
-  var json=await res.json().catch(function(){ return null; });
-  if(!res.ok || !json || json.ok===false){
-    var err=new Error((json&&json.error)?json.error:('http_'+res.status));
-    err.payload=json||null;
-    throw err;
+
+  var ctl=null;
+  var timeoutId=null;
+  try{
+    if(typeof AbortController!=='undefined'){
+      ctl=new AbortController();
+      opt.signal=ctl.signal;
+      timeoutId=setTimeout(function(){
+        try{ ctl.abort(); }catch(_){ }
+      },API_TIMEOUT_MS);
+    }
+    var res=await fetch(apiUrl(path),opt);
+    var json=await res.json().catch(function(){ return null; });
+    if(!res.ok || !json || json.ok===false){
+      var err=new Error((json&&json.error)?json.error:('http_'+res.status));
+      err.payload=json||null;
+      throw err;
+    }
+    return json;
+  }catch(e){
+    if(e && e.name==='AbortError'){
+      var toErr=new Error('api_timeout');
+      toErr.payload={ok:false,error:'api_timeout'};
+      throw toErr;
+    }
+    throw e;
+  }finally{
+    if(timeoutId) clearTimeout(timeoutId);
   }
-  return json;
 }
 function apiGet(path){ return apiRequest('GET',path); }
 function apiPost(path,payload){ return apiRequest('POST',path,payload); }
@@ -6160,8 +6182,11 @@ function penEnterPvpLobby(){
   penRefreshStandby(true);
   var opp=penGetSelectedStandby();
   if(opp){
-    showToast('⚔️ Ready vs '+opp.name+'. Tap Start to begin.');
-  } else if(P.selfStandbyQueued){
+    showToast('⚔️ Starting PvP vs '+opp.name+'...');
+    penStartMatch('pvp',opp);
+    return;
+  }
+  if(P.selfStandbyQueued){
     showToast('🕒 You are queued. Tap Refresh List to find opponent.');
   } else {
     showToast('No opponent yet. Register standby first.');
@@ -6527,6 +6552,7 @@ function openPenalty(){
 
 /* ─── START MATCH ─── */
 async function penStartMatch(mode,chosenOpp){
+  try{
   if(mode==='solo' && !P._dailyData) penInitDaily();
   penEnsureAudio();
   penEnsureGoalPhoto();
@@ -6654,6 +6680,11 @@ async function penStartMatch(mode,chosenOpp){
   cancelAnimationFrame(P.raf);
   (function loop(){P.raf=requestAnimationFrame(loop);penUpdate();penDraw();})();
   penSchedule(penNextHalfRound, PEN_PACE.startTurn);
+
+  }catch(err){
+    try{ console.error(err); }catch(_){ }
+    showToast('⚠️ Penalty action failed. Please try again.');
+  }
 }
 
 function penInitEntities(){
