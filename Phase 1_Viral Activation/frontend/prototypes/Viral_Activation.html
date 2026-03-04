@@ -1489,14 +1489,185 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 #page-info .rules-table th{color:var(--c-gray);font-size:9.5px;}
 #page-info .rules-table td{color:var(--c-white);}
 
-.ai-bot-box{background:linear-gradient(135deg,rgba(30,136,229,.14),rgba(229,57,53,.08));border:1px solid rgba(30,136,229,.3);border-radius:14px;padding:12px;}
-.ai-bot-title{font-family:var(--font-display);font-weight:700;font-size:13px;color:var(--c-white);margin-bottom:2px;}
+.ai-bot-box{
+  background:
+    radial-gradient(120% 90% at 15% 0%,rgba(30,136,229,.2),rgba(30,136,229,0) 45%),
+    radial-gradient(100% 100% at 100% 100%,rgba(31,191,106,.16),rgba(31,191,106,0) 42%),
+    linear-gradient(160deg,rgba(21,35,53,.84),rgba(9,22,34,.92));
+  border:1px solid rgba(99,179,255,.26);
+  border-radius:14px;
+  padding:12px;
+}
+.ai-bot-title{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-family:var(--font-display);
+  font-weight:700;
+  font-size:13px;
+  color:var(--c-white);
+  margin-bottom:2px;
+}
 .ai-bot-sub{font-size:10px;color:var(--c-gray);margin-bottom:8px;}
+.pique-tab-icon,
+.pique-mini-icon{
+  width:14px;
+  height:14px;
+  border-radius:50%;
+  display:inline-block;
+  position:relative;
+  border:1px solid rgba(153,180,255,.6);
+  background:radial-gradient(circle at 32% 34%,#8dd7ff 0%,#3b48c7 40%,#22144f 100%);
+  box-shadow:0 0 6px rgba(74,132,255,.45);
+}
+.pique-mini-icon{width:18px;height:18px;}
+.pique-tab-icon::before,
+.pique-tab-icon::after,
+.pique-mini-icon::before,
+.pique-mini-icon::after{
+  content:'';
+  position:absolute;
+  top:5px;
+  width:3px;
+  height:3px;
+  border-radius:50%;
+  background:#d7fbff;
+  box-shadow:0 0 5px rgba(170,235,255,.9);
+}
+.pique-tab-icon::before,.pique-mini-icon::before{left:3px;}
+.pique-tab-icon::after,.pique-mini-icon::after{right:3px;}
+.pique-quick-wrap{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 10px;}
+.pique-q-btn{
+  border:1px solid rgba(152,174,230,.35);
+  background:rgba(255,255,255,.06);
+  color:var(--c-white);
+  border-radius:999px;
+  padding:5px 9px;
+  font-size:9.2px;
+  font-weight:600;
+  line-height:1.2;
+  cursor:pointer;
+  transition:all .15s;
+}
+.pique-q-btn:active{transform:scale(.97);}
+.pique-q-btn:hover{background:rgba(30,136,229,.16);border-color:rgba(30,136,229,.55);}
+.pique-stage{
+  width:min(76vw,250px);
+  margin:4px auto 12px;
+  position:relative;
+  aspect-ratio:1.35/1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.pique-orbit{
+  position:absolute;
+  inset:2px;
+  border-radius:52% 48% 54% 46% / 44% 56% 46% 54%;
+  border:3px solid transparent;
+  background:linear-gradient(#0d1624,#0d1624) padding-box,conic-gradient(from 30deg,#4e8fff,#8f7cff,#ff6b54,#f5c542,#35d0b0,#4e8fff) border-box;
+  opacity:.9;
+  animation:piqueOrbit 7s linear infinite;
+}
+.pique-core{
+  position:relative;
+  width:68%;
+  aspect-ratio:1/1;
+  border-radius:50%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  background:radial-gradient(circle at 34% 28%,#3c4ff0 0%,#2d246f 46%,#19143c 100%);
+  border:2px solid rgba(147,143,255,.75);
+  box-shadow:0 14px 30px rgba(24,39,84,.46),0 0 20px rgba(83,117,255,.25);
+  animation:piqueFloat 2.8s ease-in-out infinite;
+}
+.pique-face{
+  position:relative;
+  width:78%;
+  aspect-ratio:1/1;
+  border-radius:50%;
+  border:2px solid rgba(150,141,255,.58);
+  background:radial-gradient(circle at 40% 30%,rgba(116,119,255,.16),rgba(0,0,0,.2));
+}
+.pique-eye{
+  position:absolute;
+  top:34%;
+  width:12px;
+  height:12px;
+  border-radius:50%;
+  background:#dbf9ff;
+  box-shadow:0 0 12px rgba(171,241,255,.95);
+  animation:piqueBlink 4s infinite;
+  transform-origin:center;
+}
+.pique-eye.left{left:28%;}
+.pique-eye.right{right:28%;animation-delay:.16s;}
+.pique-mouth{
+  position:absolute;
+  left:50%;
+  bottom:28%;
+  width:34px;
+  height:14px;
+  border:3px solid #32d87a;
+  border-top:0;
+  border-left-color:transparent;
+  border-right-color:transparent;
+  border-radius:0 0 20px 20px;
+  transform:translateX(-50%);
+  filter:drop-shadow(0 0 6px rgba(50,216,122,.45));
+}
+.pique-cheek{
+  position:absolute;
+  right:18%;
+  top:46%;
+  width:11px;
+  height:26px;
+  border-radius:12px;
+  background:linear-gradient(180deg,#fbd44f,#eeb12e);
+  box-shadow:0 0 8px rgba(251,212,79,.5);
+}
+.pique-tag{
+  margin-top:8px;
+  min-width:92px;
+  text-align:center;
+  padding:7px 12px;
+  border-radius:12px;
+  font-family:var(--font-display);
+  font-weight:800;
+  letter-spacing:1px;
+  color:#e8f1ff;
+  background:linear-gradient(135deg,#7a39ff,#5d23dd);
+  box-shadow:0 8px 16px rgba(64,36,160,.42);
+}
 .ai-input-row{display:flex;gap:8px;}
-.ai-input{flex:1;background:rgba(14,26,36,.86);border:1px solid var(--br2);border-radius:8px;padding:10px;color:var(--pw);font-family:var(--font-body);font-size:11px;}
+.ai-input{
+  flex:1;
+  background:rgba(14,26,36,.86);
+  border:1px solid var(--br2);
+  border-radius:8px;
+  padding:10px;
+  color:var(--pw);
+  font-family:var(--font-body);
+  font-size:11px;
+}
 .ai-input::placeholder{color:var(--c-gray);}
-.ai-response{margin-top:8px;padding:9px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;font-size:10px;color:var(--c-gray);line-height:1.55;display:none;}
+.ai-response{
+  margin-top:8px;
+  padding:9px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;
+  font-size:10px;
+  color:var(--c-gray);
+  line-height:1.55;
+  display:none;
+}
 .ai-response.show{display:block;}
+@keyframes piqueOrbit{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes piqueFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes piqueBlink{0%,44%,46%,92%,100%{transform:scaleY(1)}45%,93%{transform:scaleY(.2)}}
 
 /* ── SPIN (REFRESHED FROM WC26_MiniApp) ── */
 .spin-cta{
@@ -2507,7 +2678,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <button class="info-tab-btn active" data-tab="match" onclick="showInfoTab('match',this)">🏟️ Match Hub</button>
     <button class="info-tab-btn" data-tab="pulse" onclick="showInfoTab('pulse',this)">📡 Hot Signals</button>
     <button class="info-tab-btn" data-tab="rules" onclick="showInfoTab('rules',this)">📋 Rules</button>
-    <button class="info-tab-btn" data-tab="ai" onclick="showInfoTab('ai',this)">🤖 PIQUE</button>
+    <button class="info-tab-btn" data-tab="ai" onclick="showInfoTab('ai',this)"><span class="pique-tab-icon" aria-hidden="true"></span> PIQUE</button>
   </div>
 
   <div class="card acc-b info-sec info-section" id="info-match-hub">
@@ -2563,13 +2734,35 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 
   <div class="card acc-r info-sec info-section hidden" id="info-ai-bot">
     <div class="ai-bot-box">
-      <div class="ai-bot-title">🤖 Ask WC26 AI</div>
-      <div class="ai-bot-sub">Your WC26 AI companion. Ask about teams, stats, rules or your journey.</div>
-      <div class="ai-input-row">
-        <input class="ai-input" id="info-ai-input" placeholder="e.g. Who will win Group C?" onkeydown="if(event.key==='Enter')infoAiSend()">
-        <button class="btn b-b" style="width:auto;padding:0 12px" onclick="infoAiSend()">ASK</button>
+      <div class="ai-bot-title"><span class="pique-mini-icon" aria-hidden="true"></span> Ask PIQUE AI</div>
+      <div class="ai-bot-sub">Tap a quick question, or type your own prompt below.</div>
+
+      <div class="pique-quick-wrap">
+        <button class="pique-q-btn" onclick="infoAskPreset('Who can top Group C?')">🏟️ Who tops Group C?</button>
+        <button class="pique-q-btn" onclick="infoAskPreset('How do I earn KICK faster?')">⚡ Earn KICK faster?</button>
+        <button class="pique-q-btn" onclick="infoAskPreset('How does KICK convert to WC26?')">💱 KICK to WC26?</button>
+        <button class="pique-q-btn" onclick="infoAskPreset('How do Nation Wars points work?')">⚔️ Nation Wars points?</button>
+        <button class="pique-q-btn" onclick="infoAskPreset('How does referral reward work?')">👥 Referral rewards?</button>
       </div>
-      <div class="ai-response" id="info-ai-log">Coming soon: AI assistant for match insights and reward guidance.</div>
+
+      <div class="pique-stage" aria-hidden="true">
+        <div class="pique-orbit"></div>
+        <div class="pique-core">
+          <div class="pique-face">
+            <span class="pique-eye left"></span>
+            <span class="pique-eye right"></span>
+            <span class="pique-mouth"></span>
+            <span class="pique-cheek"></span>
+          </div>
+          <div class="pique-tag">PIQUE</div>
+        </div>
+      </div>
+
+      <div class="ai-input-row">
+        <input class="ai-input" id="info-ai-input" placeholder="Ask PIQUE about teams, rules, rewards..." onkeydown="if(event.key==='Enter')infoAiSend()">
+        <button class="btn b-b" style="width:auto;padding:0 12px" onclick="infoAiSend()">SEND</button>
+      </div>
+      <div class="ai-response" id="info-ai-log">PIQUE online. Ask about groups, Nation Wars, KICK, or referral rewards.</div>
     </div>
   </div>
 </div>
@@ -3608,27 +3801,32 @@ function initInfoComposite(){
 }
 
 var INFO_AI_RESPONSES={
-  default:"I'm your WC26 AI assistant! Ask me about World Cup 2026 teams, match schedules, or your KICK earnings. Full AI integration coming soon! 🤖⚽",
-  brazil:"🇧🇷 Brazil is in Group C alongside Morocco, Haiti and Scotland. Opens vs Morocco at MetLife Stadium on Jun 13.",
-  argentina:"🇦🇷 Defending champions Argentina are in Group J with Algeria, Austria and Jordan. Opens vs Algeria at MetLife on Jun 16.",
-  france:"🇫🇷 France is in Group I with Senegal, Norway and Intercontinental P/O 2. France vs Norway is a marquee game.",
-  kick:'💰 You currently have '+fmtKickFull(S.kick)+' total KICK. Keep playing daily games and completing social tasks.',
-  spin:"🎯 Daily Spin gives 50-200 KICK + boosts. You get 1 free spin daily and can unlock extras.",
-  penalty:"⚽ Penalty Challenge: 3 free solo matches/day, win +2,000 KICK. In PvP: win +2,000 but lose -2,500."
+  default:"I am PIQUE, your WC26 assistant. Ask me about groups, fixtures, KICK growth, Nation Wars, and conversion rules.",
+  brazil:"🇧🇷 Brazil is in Group C with Morocco, Haiti and Scotland. Opener: Brazil vs Morocco at MetLife Stadium on Jun 13.",
+  argentina:"🇦🇷 Argentina are in Group J with Algeria, Austria and Jordan. Opener: Argentina vs Algeria at MetLife on Jun 16.",
+  france:"🇫🇷 France are in Group I with Senegal, Norway and Intercontinental P/O 2.",
+  kick:'💰 You currently have '+fmtKickFull(S.kick)+' total KICK. Combine Spin + Quiz + Penalty + social tasks daily for fastest growth.',
+  spin:"🎯 Daily Spin: 1 free spin/day, plus extra unlocks from invite/share. Rewards include KICK and temporary boosts.",
+  penalty:"⚽ Penalty Challenge: Solo has 3 free/day, extra matches cost 500 KICK. PvP win +2,000 and loss -2,500.",
+  groups:"🏟️ Use Match Hub to browse Groups A-L and knockout rounds. You can filter groups from the top pills.",
+  rules:"📋 Rulebook highlight: task cap is 15,000 KICK for tasks only, while game-earned KICK still keeps growing.",
+  nation:"⚔️ Nation War points = total nation KICK / eligible users. Eligible users need at least 5,000 KICK and 7 active days.",
+  referral:"👥 Referral: F1 registration +200, F1 active 7 days +500, F2 registration +50, F2 active 7 days +100."
 };
 
-function infoAiSend(){
+function infoAiSend(preset){
   var input=document.getElementById('info-ai-input');
   var log=document.getElementById('info-ai-log');
   if(!log) return;
-  var q=(input?String(input.value||'').trim().toLowerCase():'');
+  var src=(typeof preset==='string' && preset.trim())?preset:(input?String(input.value||'').trim():'');
+  var q=src.toLowerCase();
   if(!q){
-    log.textContent='Coming soon: AI assistant is in preview mode.';
+    log.textContent='PIQUE is ready. Ask any question about WC26 gameplay and rewards.';
     log.classList.add('show');
     return;
   }
 
-  log.textContent='🤔 Thinking...';
+  log.textContent='🤔 PIQUE is thinking...';
   log.classList.add('show');
 
   setTimeout(function(){
@@ -3636,12 +3834,21 @@ function infoAiSend(){
     if(q.indexOf('brazil')>=0) answer=INFO_AI_RESPONSES.brazil;
     else if(q.indexOf('argentina')>=0) answer=INFO_AI_RESPONSES.argentina;
     else if(q.indexOf('france')>=0) answer=INFO_AI_RESPONSES.france;
-    else if(q.indexOf('kick')>=0) answer='💰 You currently have '+fmtKickFull(S.kick)+' total KICK.';
+    else if(q.indexOf('kick')>=0 || q.indexOf('earn')>=0) answer=INFO_AI_RESPONSES.kick;
     else if(q.indexOf('spin')>=0) answer=INFO_AI_RESPONSES.spin;
-    else if(q.indexOf('penalty')>=0) answer=INFO_AI_RESPONSES.penalty;
+    else if(q.indexOf('penalty')>=0 || q.indexOf('pvp')>=0) answer=INFO_AI_RESPONSES.penalty;
+    else if(q.indexOf('group')>=0 || q.indexOf('fixture')>=0 || q.indexOf('schedule')>=0) answer=INFO_AI_RESPONSES.groups;
+    else if(q.indexOf('rule')>=0 || q.indexOf('convert')>=0 || q.indexOf('wc26')>=0) answer=INFO_AI_RESPONSES.rules;
+    else if(q.indexOf('nation')>=0 || q.indexOf('war')>=0) answer=INFO_AI_RESPONSES.nation;
+    else if(q.indexOf('ref')>=0 || q.indexOf('invite')>=0) answer=INFO_AI_RESPONSES.referral;
     log.textContent=answer;
     if(input) input.value='';
-  },700);
+  },520);
+}
+function infoAskPreset(question){
+  var input=document.getElementById('info-ai-input');
+  if(input) input.value=question;
+  infoAiSend(question);
 }
 
 function parseSpinBonus(v){
