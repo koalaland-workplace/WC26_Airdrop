@@ -3,21 +3,34 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>WC26 NFT Fantasy — Fan OS</title>
+<title>WC26 Nation Journey Airdrop – Phase 1: Viral Activation</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --g:#1FBF6A;--y:#F5C542;--rd:#E53935;--bl:#1E88E5;
+  --c-green:#1FBF6A;
+  --c-yellow:#F5C542;
+  --c-red:#E53935;
+  --c-blue:#1E88E5;
+  --c-bg:#0E1A24;
+  --c-white:#F2F2F2;
+  --c-pure:#FFFFFF;
+  --c-gray:#B0B8C1;
+
+  --font-display:"Montserrat",system-ui,sans-serif;
+  --font-body:"Inter",system-ui,sans-serif;
+  --font-mono:"JetBrains Mono",monospace;
+
+  --g:var(--c-green);--y:var(--c-yellow);--rd:var(--c-red);--bl:var(--c-blue);
   --pu:#a78bfa;
-  --bg:#0E1A24;--bg2:#111F2C;--bg3:#172635;--bg4:#1D3042;
-  --wh:#F2F2F2;--pw:#FFFFFF;--gr:#8fa3b1;
+  --bg:var(--c-bg);--bg2:#111F2C;--bg3:#172635;--bg4:#1D3042;
+  --wh:var(--c-white);--pw:var(--c-pure);--gr:var(--c-gray);
   --gd:rgba(31,191,106,.11);--yd:rgba(245,197,66,.11);
   --rdd:rgba(229,57,53,.1);--bld:rgba(30,136,229,.1);--pud:rgba(167,139,250,.11);
   --br:rgba(255,255,255,.055);--br2:rgba(255,255,255,.1);
   --r:13px;--rs:8px;--sb:env(safe-area-inset-bottom,0px);--spin-logo:none;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;}
-html,body{width:100%;max-width:430px;margin:0 auto;min-height:100dvh;background:var(--bg);font-family:'Inter',sans-serif;color:var(--wh);overflow-x:hidden;-webkit-font-smoothing:antialiased;}
+html,body{width:100%;max-width:430px;margin:0 auto;min-height:100dvh;background:var(--bg);font-family:var(--font-body);color:var(--wh);overflow-x:hidden;-webkit-font-smoothing:antialiased;}
 body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   background:
     radial-gradient(ellipse 65% 40% at 10% 0%,rgba(31,191,106,.11) 0%,transparent 55%),
@@ -67,7 +80,11 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .acc-p::before{background:linear-gradient(90deg,var(--pu),transparent);}
 .acc-m::before{background:linear-gradient(90deg,var(--g),var(--y),var(--rd),var(--bl));}
 
-.btn{width:100%;padding:12px;border:none;border-radius:var(--rs);cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;transition:all .16s;}
+.btn{
+  width:100%;padding:12px;border:none;border-radius:var(--rs);cursor:pointer;
+  font-family:var(--font-body);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.35px;
+  transition:all .16s;
+}
 .btn:active{transform:scale(.97);}
 .b-g{background:linear-gradient(135deg,var(--g),#17a35a);color:#000;}
 .b-y{background:linear-gradient(135deg,#c9920f,var(--y));color:#000;}
@@ -919,6 +936,204 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .rules-table td{color:var(--gr);}
 .rules-note{font-size:8.8px;color:var(--gr);margin-top:5px;}
 
+/* ── HOME + INFO OVERRIDES ── */
+#app{padding-bottom:calc(72px + var(--sb));}
+.pg{padding:12px 11px calc(92px + var(--sb));}
+
+.hdr{
+  padding:9px 11px 8px;
+  align-items:flex-start;
+  gap:8px;
+  border-bottom:1px solid var(--br2);
+  background:rgba(14,26,36,.94);
+}
+.hdr-l{display:flex;align-items:flex-start;gap:8px;flex:1;min-width:0;}
+.hdr-logo{
+  width:32px;height:32px;border-radius:8px;object-fit:cover;flex-shrink:0;
+  border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.05);
+}
+.logo-fallback{
+  display:none;align-items:center;justify-content:center;
+  width:32px;height:32px;border-radius:8px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--g),var(--y));
+  color:#0f1820;font-family:var(--font-display);font-size:10px;font-weight:800;
+}
+.logo-fallback.on{display:flex;}
+.hdr-copy{min-width:0;flex:1;}
+.brand-nm{
+  font-family:var(--font-display);font-weight:700;font-size:12px;color:var(--pw);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  background:none;-webkit-text-fill-color:initial;
+}
+.brand-sub{display:none;}
+.hdr-kick-row{display:flex;align-items:center;gap:6px;margin-top:4px;}
+.kick-chip{
+  padding:4px 8px;border-radius:999px;border:1px solid rgba(31,191,106,.35);
+  background:rgba(31,191,106,.12);display:flex;align-items:center;gap:5px;cursor:pointer;
+}
+.kick-val{font-family:var(--font-mono);font-weight:500;font-size:12px;color:var(--pw);}
+.kick-lbl{font-family:var(--font-mono);font-size:11px;color:var(--c-gray);letter-spacing:.1px;}
+.tier-chip{
+  border:1px solid rgba(245,197,66,.35);background:rgba(245,197,66,.12);color:var(--c-yellow);
+  border-radius:999px;padding:4px 8px;font-size:10px;font-weight:600;cursor:pointer;
+  font-family:var(--font-body);line-height:1;
+}
+.hdr-rank{
+  margin-top:4px;color:var(--c-gray);font-size:10px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+}
+.hdr-ring-wrap{
+  border:none;background:transparent;position:relative;width:44px;height:44px;cursor:pointer;
+  flex-shrink:0;margin-top:1px;padding:0;
+}
+.hdr-ring-wrap svg{width:44px;height:44px;transform:rotate(-90deg);}
+.hdr-ring-txt{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-mono);font-size:9px;color:var(--pw);
+}
+.hdr-ring-wrap.pulse{animation:hdrPulse 1.2s ease-in-out infinite;}
+@keyframes hdrPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+
+.nav{
+  position:fixed;left:50%;bottom:0;transform:translateX(-50%);
+  width:100%;max-width:430px;z-index:120;padding:7px 8px calc(7px + var(--sb));
+  grid-template-columns:repeat(6,1fr);gap:4px;
+  background:linear-gradient(180deg,rgba(14,26,36,.22),rgba(14,26,36,.95) 38%);
+  border-top:1px solid rgba(255,255,255,.08);
+}
+.nb{
+  min-height:50px;padding:5px 2px;border-radius:10px;font-family:var(--font-body);
+  font-size:8px;letter-spacing:.3px;font-weight:600;color:var(--c-gray);
+  background:rgba(255,255,255,.03);
+}
+.nb .ni{font-size:14px;}
+.nb.on{
+  border-color:transparent;
+  background:linear-gradient(135deg,var(--c-green),var(--c-yellow));
+  color:#0d191f;
+}
+
+.home-hero-banner{
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 82% 20%,rgba(229,57,53,.25),transparent 52%),
+    radial-gradient(circle at 12% 0%,rgba(245,197,66,.22),transparent 44%),
+    linear-gradient(140deg,#101f2b,#281f26 55%,#2f1e1e);
+}
+.home-watermark{
+  position:absolute;right:-10px;top:-12px;width:96px;opacity:.1;pointer-events:none;
+  filter:grayscale(1) contrast(1.2);
+}
+.home-h2{font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--pw);}
+.home-countdown{
+  margin-top:6px;font-family:var(--font-mono);font-size:12px;color:var(--c-yellow);
+}
+.home-war-live{margin-top:8px;font-size:11px;font-weight:600;color:var(--pw);}
+.home-war-delta{
+  margin-top:4px;font-family:var(--font-mono);font-size:11px;color:var(--c-green);
+}
+.home-war-delta.neg{color:var(--c-red);}
+.home-fans{margin-top:4px;font-size:10px;color:var(--c-gray);}
+
+.home-spin-cta{cursor:pointer;}
+.home-sec-title{
+  font-family:var(--font-display);font-weight:600;font-size:12px;color:var(--pw);margin-bottom:8px;
+}
+.home-spin-sub{font-size:10px;color:var(--c-gray);margin-top:7px;margin-bottom:8px;}
+.home-spin-cta .btn{
+  background:linear-gradient(135deg,var(--c-green),var(--c-yellow));
+  color:#0c171d;
+  box-shadow:0 0 16px rgba(245,197,66,.35);
+}
+.home-spin-preview{
+  display:flex;align-items:center;justify-content:center;margin:2px 0 6px;
+}
+.home-spin-wheel{
+  width:92px;height:92px;border-radius:50%;position:relative;
+  background:
+    conic-gradient(#0f2838 0 51deg,#17364a 51deg 102deg,#1f4455 102deg 153deg,#2a3a48 153deg 204deg,#314d45 204deg 255deg,#3d4f2f 255deg 306deg,#4f3f28 306deg 360deg);
+  border:2px solid rgba(255,255,255,.14);
+  box-shadow:0 0 18px rgba(245,197,66,.18), inset 0 0 14px rgba(255,255,255,.08);
+  animation:homeSpinPreview 20s linear infinite;
+}
+.home-spin-wheel::before{
+  content:'⚽';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:20px;
+}
+.home-spin-pointer{
+  width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;
+  border-top:13px solid var(--c-yellow);margin:0 auto -3px;filter:drop-shadow(0 0 6px rgba(245,197,66,.5));
+}
+@keyframes homeSpinPreview{to{transform:rotate(360deg)}}
+
+.home-quick{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.home-quick-card{padding:11px;}
+.home-quick-head{font-family:var(--font-display);font-weight:600;font-size:11px;color:var(--pw);}
+.home-quick-sub{margin-top:2px;font-size:10px;color:var(--c-yellow);}
+.home-quick-reward{margin-top:2px;font-size:9.5px;color:var(--c-gray);}
+.home-quick .btn{margin-top:7px;font-size:11px;padding:10px;}
+
+.home-match{cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.home-match-copy{font-size:10px;color:var(--c-gray);}
+.home-match-copy strong{
+  display:block;font-size:12px;color:var(--pw);font-family:var(--font-display);font-weight:600;margin-bottom:2px;
+}
+.home-match-cta{font-size:10px;color:var(--c-blue);font-weight:600;}
+
+.home-nations-title{font-family:var(--font-display);font-size:12px;font-weight:600;margin-bottom:7px;color:var(--pw);}
+.home-nation-row{
+  display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;
+  padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05);
+}
+.home-nation-row:last-of-type{border-bottom:none;}
+.home-nation-name{font-size:11px;color:var(--pw);}
+.home-nation-points{font-family:var(--font-mono);font-size:11px;color:var(--pw);}
+.home-nation-delta{font-family:var(--font-mono);font-size:10px;color:var(--c-green);}
+.home-nation-delta.neg{color:var(--c-red);}
+.home-nation-divider{height:1px;background:rgba(255,255,255,.12);margin:7px 0;}
+.home-your-nation{font-size:10px;color:var(--c-gray);margin-bottom:8px;}
+.home-nation-glow .home-nation-delta{animation:deltaGlow .7s ease;}
+@keyframes deltaGlow{
+  0%{text-shadow:0 0 0 transparent;}
+  45%{text-shadow:0 0 12px rgba(31,191,106,.9);}
+  100%{text-shadow:0 0 0 transparent;}
+}
+
+.home-legacy-cache{display:none;}
+
+.info-sec .info-head{
+  font-family:var(--font-display);font-size:12px;font-weight:600;color:var(--pw);margin-bottom:6px;
+}
+.info-list{display:grid;gap:6px;font-size:10px;color:var(--c-gray);}
+.info-list .info-item{
+  padding:8px;border-radius:8px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+}
+.info-sublink{
+  margin-top:8px;font-size:10px;color:var(--c-blue);font-weight:600;cursor:pointer;
+}
+.info-ai-wrap{display:flex;gap:6px;margin-top:6px;}
+.info-ai-input{
+  flex:1;border-radius:8px;border:1px solid rgba(255,255,255,.18);
+  background:rgba(14,26,36,.8);padding:10px;color:var(--pw);
+  font-family:var(--font-body);font-size:11px;
+}
+.info-ai-log{
+  margin-top:8px;font-size:10px;color:var(--c-gray);
+  padding:8px;border-radius:8px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);
+}
+
+.confetti{
+  position:fixed;inset:0;pointer-events:none;z-index:180;overflow:hidden;
+}
+.confetti-dot{
+  position:absolute;width:6px;height:9px;border-radius:2px;opacity:.95;
+  animation:confettiFall .9s ease-out forwards;
+}
+@keyframes confettiFall{
+  0%{transform:translateY(0) rotate(0deg);opacity:1;}
+  100%{transform:translateY(110px) rotate(420deg);opacity:0;}
+}
+
 /* TOAST */
 .toast{position:fixed;bottom:calc(60px + var(--sb));left:50%;transform:translateX(-50%) translateY(12px);
   background:var(--bg2);border:1px solid var(--br2);border-radius:24px;padding:8px 14px;
@@ -933,189 +1148,139 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 <!-- HEADER -->
 <header class="hdr">
   <div class="hdr-l">
-    <img id="logo-img" class="hdr-logo" src="" alt="WC26">
-    <div>
-      <span class="brand-nm">WC26 NFT FANTASY</span>
-      <span class="brand-sub">Fan Operating System</span>
+    <img id="logo-img" class="hdr-logo" src="./WC26-LOGO.jpg" alt="WC26 official logo">
+    <div id="logo-fallback" class="logo-fallback">WC26</div>
+    <div class="hdr-copy">
+      <span class="brand-nm">WC26 Nation Journey – Phase 1</span>
+      <div class="hdr-kick-row">
+        <button class="kick-chip" id="hdr-kick-chip" onclick="go('earn',document.querySelector('.nb[data-page=\'earn\']'))">
+          <span class="kick-lbl">KICK:</span>
+          <span class="kick-val" id="kval">24,350</span>
+        </button>
+        <button class="tier-chip" id="hdr-tier-chip" onclick="go('earn',document.querySelector('.nb[data-page=\'earn\']'))">
+          <span id="hdr-tier">Elite Fan</span>
+        </button>
+      </div>
+      <div class="hdr-rank" id="hdr-rank-line">🇧🇷 Brazil #132 | Global #5,342</div>
     </div>
   </div>
-  <div class="kick-chip" onclick="showToast('⚽ KICK Balance: ' + S.kick.toLocaleString() + ' · Rank #5,342')">
-    <span style="font-size:11px">⚽</span>
-    <div><div class="kick-val" id="kval">24,350</div><div class="kick-lbl">KICK</div></div>
-  </div>
+  <button class="hdr-ring-wrap" id="hdr-ring-btn" onclick="go('earn',document.querySelector('.nb[data-page=\'earn\']'))" aria-label="Open Earn tab">
+    <svg viewBox="0 0 44 44">
+      <circle cx="22" cy="22" r="17" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="4"></circle>
+      <circle id="hdr-kick-ring" cx="22" cy="22" r="17" fill="none" stroke="url(#hdrg)" stroke-width="4" stroke-dasharray="107" stroke-dashoffset="107" stroke-linecap="round"></circle>
+      <defs>
+        <linearGradient id="hdrg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#1FBF6A"></stop>
+          <stop offset="100%" stop-color="#F5C542"></stop>
+        </linearGradient>
+      </defs>
+    </svg>
+    <span class="hdr-ring-txt" id="hdr-ring-pct">0%</span>
+  </button>
 </header>
 
 <!-- NAV -->
 <nav class="nav">
-  <button class="nb on" onclick="go('home',this)"><span class="ni">🏠</span>Home</button>
-  <button class="nb" onclick="go('quiz',this)"><span class="ni">🧠</span>Quiz</button>
-  <button class="nb" onclick="go('wars',this)"><span class="ni">⚔️</span>War</button>
-  <button class="nb" onclick="go('pulse',this)"><span class="ni">📡</span>Pulse</button>
-  <button class="nb" onclick="go('earn',this)"><span class="ni">🎁</span>Earn</button>
+  <button class="nb on" data-page="home" onclick="go('home',this)"><span class="ni">🏠</span>HOME</button>
+  <button class="nb" data-page="wars" onclick="go('wars',this)"><span class="ni">⚔️</span>WARS</button>
+  <button class="nb" data-page="spin" onclick="go('spin',this)"><span class="ni">🎯</span>SPIN</button>
+  <button class="nb" data-page="quiz" onclick="go('quiz',this)"><span class="ni">❓</span>QUIZ</button>
+  <button class="nb" data-page="earn" onclick="go('earn',this)"><span class="ni">📈</span>EARN</button>
+  <button class="nb" data-page="info" onclick="go('info',this)"><span class="ni">ℹ️</span>INFO</button>
 </nav>
 
 <!-- ══════════ HOME ══════════ -->
 <div id="page-home" class="pg on">
-  <!-- Phase 1 banner: Viral Activation -->
-  <div class="phase-bar" id="phase-banner">
-    <div class="phase-tag">📅 Phase 1 — Viral Activation · Day 18 of 100</div>
-    <div class="phase-title">Nation Journey is LIVE · Earn KICK daily!</div>
-    <div class="phase-desc">Complete quests · Refer friends · Reach 1M fans together</div>
-    <span class="phase-close" onclick="this.parentElement.style.display='none'">✕</span>
+  <div class="card acc-r home-hero-banner" id="home-hero-banner">
+    <img src="./WC26-LOGO.jpg" alt="WC26 watermark" class="home-watermark" id="home-watermark">
+    <div class="home-h2">🔥 World Cup Countdown</div>
+    <div class="home-countdown" id="home-countdown">-- days until Kickoff</div>
+    <div class="home-war-live" id="home-war-live">⚔️ Nation War Live – Brazil vs Argentina</div>
+    <div class="home-war-delta" id="home-war-delta">Brazil +2.8% ↑</div>
+    <div class="home-fans">👥 <span id="home-live-fans">243,182</span> fans playing now</div>
   </div>
 
-  <div class="hero">
-    <div id="logo-hero" class="hero-pique" aria-label="PIQUE Animated Avatar">
-      <div class="hero-pique-ring"></div>
-      <div class="hero-pique-glow"></div>
-      <div class="hero-pique-mascot">
-        <div class="hero-pique-face">
-          <div class="hero-pique-brows">
-            <div class="hero-pique-brow l"></div>
-            <div class="hero-pique-brow r"></div>
-          </div>
-          <div class="hero-pique-eyes">
-            <div class="hero-pique-eye l"></div>
-            <div class="hero-pique-eye"></div>
-          </div>
-          <div class="hero-pique-lower">
-            <div class="hero-pique-nose"></div>
-            <div class="hero-pique-mouth"></div>
-          </div>
-          <div class="hero-pique-headset"></div>
-          <div class="hero-pique-mic"></div>
-        </div>
-        <div class="hero-pique-jersey">PIQUE</div>
+  <div class="card acc-y home-spin-cta" id="home-spin-cta" onclick="goSpinFromHome()">
+    <div class="home-sec-title">🎯 FREE SPIN READY</div>
+    <div class="home-spin-preview">
+      <div>
+        <div class="home-spin-pointer"></div>
+        <div class="home-spin-wheel"></div>
       </div>
     </div>
-    <div class="hero-title">FAN OPERATING SYSTEM</div>
-    <div class="hero-tag">Know · Predict · Represent · Win</div>
-    <div class="nation-badge">🇧🇷 Brazil Fan &nbsp;·&nbsp; Nation #1 · Week 4</div>
+    <div class="home-spin-sub">Tap to spin – 50–200 KICK + boosts</div>
+    <button class="btn b-y" onclick="event.stopPropagation();goSpinFromHome()">SPIN NOW</button>
   </div>
 
-  <!-- KPI row -->
-  <div class="krow">
-    <div class="ki"><div class="ki-v" id="home-kv">24,350</div><div class="ki-l">Your KICK</div></div>
-    <div class="ki"><div class="ki-v">#5,342</div><div class="ki-l">Global Rank</div></div>
-    <div class="ki"><div class="ki-v">3🔥</div><div class="ki-l">Day Streak</div></div>
-  </div>
-
-  <!-- Types of proof breakdown -->
-  <div class="card acc-y" style="margin-bottom:10px"><div class="shine"></div>
-    <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:11.5px;color:var(--pw);margin-bottom:8px">💎 TYPES OF PROOF → Airdrop</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center">
-      <div style="background:var(--bg3);border:1px solid var(--br);border-radius:var(--rs);padding:8px 5px">
-        <div style="font-size:16px;margin-bottom:3px">🎮</div>
-        <div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:9px;color:var(--g)">PoA</div>
-        <div style="font-size:8.5px;color:var(--gr)">Activity<br>40% · 4.8M</div>
-      </div>
-      <div style="background:var(--bg3);border:1px solid var(--br);border-radius:var(--rs);padding:8px 5px">
-        <div style="font-size:16px;margin-bottom:3px">🎯</div>
-        <div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:9px;color:var(--y)">PoK</div>
-        <div style="font-size:8.5px;color:var(--gr)">Skill<br>25% · 3M</div>
-      </div>
-      <div style="background:var(--bg3);border:1px solid var(--br);border-radius:var(--rs);padding:8px 5px">
-        <div style="font-size:16px;margin-bottom:3px">👥</div>
-        <div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:9px;color:var(--bl)">PoS</div>
-        <div style="font-size:8.5px;color:var(--gr)">Social<br>25% · 3M</div>
-      </div>
+  <div class="home-quick">
+    <div class="card acc-g home-quick-card">
+      <div class="home-quick-head">⚽ Penalty Challenge</div>
+      <div class="home-quick-sub" id="home-pen-free">3 Free Left</div>
+      <div class="home-quick-reward">Win up to 2,000 KICK</div>
+      <button class="btn b-g" onclick="go('penalty',null);openPenalty()">PLAY PENALTY</button>
+    </div>
+    <div class="card acc-b home-quick-card">
+      <div class="home-quick-head">❓ Daily Quiz</div>
+      <div class="home-quick-sub" id="home-quiz-left">5/5 Questions Left</div>
+      <div class="home-quick-reward">Earn up to 500 KICK</div>
+      <button class="btn b-b" onclick="go('quiz',document.querySelector('.nb[data-page=\'quiz\']'))">START QUIZ</button>
     </div>
   </div>
 
-  <div class="card acc-b">
-    <div class="shine"></div>
-    <div class="ap-hdr">
-      <div class="ap-title">🪂 AIRDROP PREVIEW</div>
-      <div class="pill p-y">Snapshot Ready</div>
+  <div class="card acc-b home-match" id="home-match-hub-cta" onclick="openInfoSection('info-match-hub')">
+    <div class="home-match-copy">
+      <strong>🏟️ World Cup 2026 Groups</strong>
+      Match Schedule<br>Latest News
     </div>
-    <div class="ap-grid">
-      <div class="ap-cell">
-        <div class="ap-v gold" id="ap-kick">24,350</div>
-        <div class="ap-l">Total KICK</div>
-      </div>
-      <div class="ap-cell">
-        <div class="ap-v blue" id="ap-rank-nat">#132</div>
-        <div class="ap-l">National Rank</div>
-      </div>
-      <div class="ap-cell">
-        <div class="ap-v green" id="ap-rank-global">#5,342</div>
-        <div class="ap-l">Global Rank</div>
-      </div>
-    </div>
-    <div class="ap-tier">
-      <div class="ap-tier-top">
-        <div class="ap-tier-name">Current Tier: <span id="ap-tier-name">Elite Fan</span></div>
-        <div class="ap-tier-need">+<span id="ap-need">25,650</span></div>
-      </div>
-      <div class="ap-tier-sub">Need <strong style="color:var(--pw)" id="ap-need-line">25,650 KICK</strong> more to reach Legacy.</div>
-    </div>
-    <div class="ap-sec">
-      <div class="ap-sec-title">Countdown Snapshot</div>
-      <div class="ap-cdown">
-        <div class="ap-cdu"><div class="ap-cdn" id="ap-cdd">--</div><div class="ap-cdl">Days</div></div>
-        <div class="ap-cdu"><div class="ap-cdn" id="ap-cdh">--</div><div class="ap-cdl">Hours</div></div>
-        <div class="ap-cdu"><div class="ap-cdn" id="ap-cdm">--</div><div class="ap-cdl">Min</div></div>
-        <div class="ap-cdu"><div class="ap-cdn" id="ap-cds">--</div><div class="ap-cdl">Sec</div></div>
-      </div>
-    </div>
-    <div class="ap-sec" style="margin-bottom:0">
-      <div class="ap-sec-title">Compare Around You</div>
-      <div class="ap-comp">
-        <div class="ap-comp-r" id="ap-above-rank">#131</div>
-        <div class="ap-comp-k" id="ap-above-kick">24,920 KICK</div>
-        <div class="ap-comp-d up" id="ap-above-gap">+570</div>
-      </div>
-      <div class="ap-comp">
-        <div class="ap-comp-r" id="ap-you-rank">#132 (You)</div>
-        <div class="ap-comp-k" id="ap-you-kick">24,350 KICK</div>
-        <div class="ap-comp-d eq">0</div>
-      </div>
-      <div class="ap-comp">
-        <div class="ap-comp-r" id="ap-below-rank">#133</div>
-        <div class="ap-comp-k" id="ap-below-kick">23,980 KICK</div>
-        <div class="ap-comp-d down" id="ap-below-gap">-370</div>
-      </div>
-    </div>
+    <div class="home-match-cta">OPEN MATCH HUB →</div>
   </div>
 
-  <!-- Airdrop snapshot progress -->
-  <div class="ad-ring-wrap">
-    <div class="ad-svg-wrap">
-      <svg width="52" height="52" viewBox="0 0 52 52">
-        <circle cx="26" cy="26" r="21" fill="none" stroke="#1D3042" stroke-width="5"/>
-        <circle id="adring" cx="26" cy="26" r="21" fill="none" stroke="url(#ayg)" stroke-width="5"
-          stroke-dasharray="132" stroke-dashoffset="99" stroke-linecap="round"/>
-        <defs><linearGradient id="ayg" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#F5C542"/>
-          <stop offset="100%" stop-color="#1FBF6A"/>
-        </linearGradient></defs>
-      </svg>
-      <div class="ad-pct-inner"><div class="ad-pct">25%</div><div class="ad-sub">done</div></div>
+  <div class="card acc-g" id="home-nation-mini">
+    <div class="home-nations-title">🏆 TOP NATIONS LIVE</div>
+    <div id="home-top-nations">
+      <div class="home-nation-row">
+        <div class="home-nation-name">🇧🇷 Brazil</div>
+        <div class="home-nation-points">38.6M</div>
+        <div class="home-nation-delta">+2.8%</div>
+      </div>
+      <div class="home-nation-row">
+        <div class="home-nation-name">🇦🇷 Argentina</div>
+        <div class="home-nation-points">21.9M</div>
+        <div class="home-nation-delta">+1.9%</div>
+      </div>
+      <div class="home-nation-row">
+        <div class="home-nation-name">🇫🇷 France</div>
+        <div class="home-nation-points">19.3M</div>
+        <div class="home-nation-delta">+1.4%</div>
+      </div>
     </div>
-    <div class="ad-info">
-      <div class="ad-title">🎯 Airdrop Eligibility</div>
-      <div class="ad-desc">Need ≥5,000 KICK · Active ≥7 days · Anti-Sybil clear</div>
-      <div class="ad-kick" id="home-adkick">24,350 / 5,000 KICK</div>
-    </div>
+    <div class="home-nation-divider"></div>
+    <div class="home-your-nation" id="home-your-nation-line">🇧🇷 Your Nation Rank: #132 | Contribution: +540 pts</div>
+    <button class="btn b-g" onclick="go('wars',document.querySelector('.nb[data-page=\'wars\']'))">NATION WARS →</button>
   </div>
 
-  <!-- Journey -->
-  <div class="card acc-m"><div class="shine"></div>
-    <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:11.5px;color:var(--pw);margin-bottom:7px">YOUR NATION JOURNEY</div>
-    <div class="journey">
-      <div class="jstep"><div class="jdot jd-g">✅</div><div class="ji"><div class="jt">Joined — Team Brazil</div><div class="js">+500 KICK · Vanguard Badge minted</div></div></div>
-      <div class="jstep"><div class="jdot jd-b">🧠</div><div class="ji"><div class="jt">Daily Quiz Streak</div><div class="js">3-day streak active · +150 KICK</div></div></div>
-      <div class="jstep"><div class="jdot jd-y">⚔️</div><div class="ji"><div class="jt">Nation Wars · Brazil #1</div><div class="js">Contributing to Week 4 lead</div></div></div>
-      <div class="jstep"><div class="jdot jd-r">🎡</div><div class="ji"><div class="jt">Daily Lucky Spin</div><div class="js">1 free spin/day · +1 spin per invite · +1 spin per WAR share · cap 10/day</div></div></div>
-      <div class="jstep"><div class="jdot jd-g">🎁</div><div class="ji"><div class="jt">Earn More KICK</div><div class="js">Join Telegram · Twitter · Discord</div></div></div>
-    </div>
+  <div class="home-legacy-cache" aria-hidden="true">
+    <span id="home-kv">24,350</span>
+    <span id="home-adkick">24,350 / 5,000 KICK</span>
+    <span id="ap-kick">24,350</span>
+    <span id="ap-rank-nat">132</span>
+    <span id="ap-rank-global">5,342</span>
+    <span id="ap-tier-name">Elite Fan</span>
+    <span id="ap-need">25,650</span>
+    <span id="ap-need-line">25,650 KICK</span>
+    <span id="ap-above-rank">#131</span>
+    <span id="ap-above-kick">24,920</span>
+    <span id="ap-above-gap">+570</span>
+    <span id="ap-you-rank">#132</span>
+    <span id="ap-you-kick">24,350</span>
+    <span id="ap-below-rank">#133</span>
+    <span id="ap-below-kick">23,980</span>
+    <span id="ap-below-gap">-370</span>
+    <span id="ap-cdd">0</span>
+    <span id="ap-cdh">00</span>
+    <span id="ap-cdm">00</span>
+    <span id="ap-cds">00</span>
   </div>
-
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px">
-    <button class="btn b-g" onclick="go('penalty',null);openPenalty()">⚽ PENALTY Challenge</button>
-    <button class="btn b-y" onclick="go('spin',null)">🎡 Daily Lucky SPIN</button>
-  </div>
-  <button class="btn" style="background:linear-gradient(135deg,#6d28d9,var(--pu));color:#fff" onclick="go('rules',document.querySelectorAll('.nb')[4])">📢 Game Rules & Announcement</button>
 </div>
 
 <!-- ══════════ GAME RULES ══════════ -->
@@ -1348,7 +1513,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <div class="sd done">✓</div><div class="sd done">✓</div><div class="sd done">✓</div>
       <div class="sd now">⚽</div><div class="sd">5</div><div class="sd">6</div><div class="sd">7</div>
     </div>
-    <button class="btn b-g" onclick="go('wars',document.querySelectorAll('.nb')[2])">⚔️ Check Nation Wars →</button>
+    <button class="btn b-g" onclick="go('wars',document.querySelector('.nb[data-page=\'wars\']'))">⚔️ Check Nation Wars →</button>
   </div>
 </div>
 
@@ -1596,6 +1761,34 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div id="earn-task-progress" style="font-size:10.5px;color:var(--gr);margin-bottom:11px"><span id="earn-task-count">0</span> of <span id="earn-task-total">28</span> tasks · <span style="color:var(--y);font-family:'JetBrains Mono',monospace" id="earn-kick-lbl">CAP 15,000 KICK</span></div>
   </div>
 
+  <div class="card acc-g">
+    <div class="info-head">🎮 Daily Games</div>
+    <div class="info-list">
+      <div class="info-item">
+        <strong style="color:var(--pw)">⚽ Penalty Challenge</strong><br>
+        3 free/day, then 500 KICK per extra match. Win up to 2,000 KICK.
+      </div>
+      <div class="info-item">
+        <strong style="color:var(--pw)">🎯 Extra Spin Unlock</strong><br>
+        1 free spin/day. Invite 1 participant or share WAR ranking to unlock extra spins (cap 10/day).
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
+      <button class="btn b-g" onclick="go('penalty',null);openPenalty()">PLAY PENALTY</button>
+      <button class="btn b-y" onclick="go('spin',document.querySelector('.nb[data-page=\'spin\']'))">OPEN SPIN</button>
+    </div>
+  </div>
+
+  <div class="ref-box" id="earn-ref-box">
+    <div class="ref-title">👥 Referral Box</div>
+    <div class="ref-sub">Invite friends to increase your nation momentum and unlock more daily spins.</div>
+    <div class="ref-stats">
+      <div class="rs"><div class="rv" id="earn-ref-mult">1x</div><div class="rl">Referral Boost</div></div>
+      <div class="rs"><div class="rv" id="earn-spin-left">1</div><div class="rl">Spin Left</div></div>
+    </div>
+    <button class="btn b-g" onclick="go('spin',document.querySelector('.nb[data-page=\'spin\']'))">GO TO SPIN & INVITE</button>
+  </div>
+
   <!-- Tasks: Telegram -->
   <div class="tcat">
     <div class="tcat-hdr"><div class="tci tcg">📣</div><div class="tcn">Telegram</div><div class="tcp">+8,000 KICK</div></div>
@@ -1656,6 +1849,56 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div class="task" id="t-tt3"><div class="task-ic">🎥</div><div class="task-info"><div class="task-nm">Create Original WC26 Content</div><div class="task-ds">Upload original WC26-themed content</div></div><div class="task-r"><div class="task-pts">+400</div><button class="tbtn tby" onclick="claimTask('t-tt3',400,'🎥 Original TikTok content verified')">CREATE</button></div></div>
   </div>
 
+</div>
+
+<!-- ══════════ INFO HUB ══════════ -->
+<div id="page-info" class="pg">
+  <div class="earn-top">
+    <div class="earn-title">ℹ️ INFO HUB</div>
+    <div class="earn-sub">Game rules · Match Hub · Hot Signals · Leaderboards · AI bot preview.</div>
+  </div>
+
+  <div class="card acc-b info-sec" id="info-match-hub">
+    <div class="info-head">🏟️ MATCH HUB</div>
+    <div class="info-list">
+      <div class="info-item"><strong style="color:var(--pw)">World Cup 2026 Groups</strong><br>Group A: USA, Mexico, Japan, Senegal</div>
+      <div class="info-item"><strong style="color:var(--pw)">Match Schedule</strong><br>Opening Match: June 11, 2026 · 20:00 UTC</div>
+      <div class="info-item"><strong style="color:var(--pw)">Latest News</strong><br>Squad updates and injury reports refresh every day.</div>
+    </div>
+  </div>
+
+  <div class="card acc-y info-sec" id="info-game-rules">
+    <div class="info-head">📘 GAME RULES</div>
+    <div id="info-rules-content" class="rules-doc"></div>
+    <button class="btn b-y" style="margin-top:8px" onclick="go('rules',null)">OPEN FULL RULEBOOK →</button>
+  </div>
+
+  <div class="card acc-g info-sec" id="info-hot-signals">
+    <div class="info-head">📡 HOT SIGNALS</div>
+    <div id="info-pulse-content" class="pulse-feed"></div>
+    <button class="btn b-b" style="margin-top:8px" onclick="go('pulse',null)">OPEN PITCH PULSE →</button>
+  </div>
+
+  <div class="card acc-m info-sec" id="info-leaderboards">
+    <div class="info-head">🏆 LEADERBOARDS</div>
+    <div class="info-list">
+      <div class="info-item">Nation WAR ranking and country momentum updates.</div>
+      <div class="info-item">Global and national standings with contribution points.</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
+      <button class="btn b-g" onclick="go('wars',document.querySelector('.nb[data-page=\'wars\']'))">NATION WARS</button>
+      <button class="btn b-gh" onclick="go('home',document.querySelector('.nb[data-page=\'home\']'))">HOME RANKS</button>
+    </div>
+  </div>
+
+  <div class="card acc-r info-sec" id="info-ai-bot">
+    <div class="info-head">🤖 Ask WC26 AI</div>
+    <div class="info-ai-wrap">
+      <input id="info-ai-input" class="info-ai-input" type="text" placeholder="Ask about matches, rules, rewards...">
+      <button class="btn b-y" style="width:auto;padding:0 12px" onclick="infoAiSend()">SEND</button>
+    </div>
+    <div class="info-ai-log" id="info-ai-log">Coming soon: AI assistant for match insights and reward guidance.</div>
+  </div>
 </div>
 
 <!-- ══════════ PENALTY CHALLENGE v8 ══════════ -->
@@ -1810,7 +2053,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       </div>
     </div>
 
-    <button class="btn b-gh" onclick="go('home',document.querySelectorAll('.nb')[0])">← Back to Home</button>
+    <button class="btn b-gh" onclick="go('home',document.querySelector('.nb[data-page=\'home\']'))">← Back to Home</button>
   </div><!-- /pen-lobby -->
 
   <!-- ARENA -->
@@ -1868,6 +2111,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div class="fps" id="fps">+100 KICK</div>
   </div>
 </div>
+<div class="confetti" id="confetti"></div>
 <div class="toast" id="toastel"></div>
 
 <script>
@@ -1936,7 +2180,7 @@ var QUIZ_RECORDS=[
   {country:'Lionel Messi',metric:'World Cup appearances',value:'26'}
 ];
 var NATIONS=[
-  {code:'BR',f:'🇧🇷',n:'Brazil',users:12430,eligibleUsers:7150,totalKick:28500000,changePct:2.8},
+  {code:'BR',f:'🇧🇷',n:'Brazil',users:12430,eligibleUsers:7150,totalKick:38600000,changePct:2.8},
   {code:'AR',f:'🇦🇷',n:'Argentina',users:10210,eligibleUsers:5660,totalKick:21900000,changePct:1.9},
   {code:'FR',f:'🇫🇷',n:'France',users:8940,eligibleUsers:4985,totalKick:19300000,changePct:1.4},
   {code:'EN',f:'🏴',n:'England',users:7650,eligibleUsers:4230,totalKick:15950000,changePct:-0.7},
@@ -1973,6 +2217,9 @@ var AP_PREVIEW={
   snapshot:'2026-06-11T20:00:00Z'
 };
 var AP_TIMER=null;
+var HOME_COUNTDOWN_TIMER=null;
+var INFO_SCROLL_TARGET='';
+var WORLD_CUP_KICKOFF='2026-06-11T20:00:00Z';
 
 /* ─────────── API CLIENT ─────────── */
 // Frontend-only demo mode (default ON): set localStorage.wc26_frontend_only='0' to re-enable backend API.
@@ -2028,11 +2275,21 @@ var LOGO='iVBORw0KGgoAAAANSUhEUgAAANoAAAFVCAYAAACJjPFiAAEAAElEQVR4nOz96bNkSXLlif
 
 /* ─────────── INIT ─────────── */
 window.onload=async function(){
-  var s='data:image/png;base64,'+LOGO;
-  document.getElementById('logo-img').src=s;
-  document.documentElement.style.setProperty('--spin-logo','url("'+s+'")');
-  var heroImg=document.getElementById('logo-hero');
-  if(heroImg && heroImg.tagName==='IMG') heroImg.src='./Mysery Boxes.png';
+  var logoPath='./WC26-LOGO.jpg';
+  var logoEl=document.getElementById('logo-img');
+  if(logoEl){
+    logoEl.src=logoPath;
+    logoEl.onerror=function(){
+      this.style.display='none';
+      var fb=document.getElementById('logo-fallback');
+      if(fb) fb.classList.add('on');
+    };
+  }
+  document.documentElement.style.setProperty('--spin-logo','url("'+logoPath+'")');
+  var homeLogo=document.getElementById('home-watermark');
+  if(homeLogo){
+    homeLogo.onerror=function(){ this.style.display='none'; };
+  }
   initCoreState();
   await apiInitSession();
   await apiSyncReferralState();
@@ -2044,6 +2301,12 @@ window.onload=async function(){
   initPulse();
   await initSpin();
   await penSyncDailyFromApi();
+  initInfoComposite();
+  startHomeCountdown();
+  renderHeaderStats();
+  renderHomeQuickPlay();
+  renderHomeHero();
+  renderHomeNationMini(false);
   initSwipe();
   initKeeperZones();
 };
@@ -2063,6 +2326,211 @@ function dayDiff(a,b){
   var da=new Date(a+'T00:00:00');
   var db=new Date(b+'T00:00:00');
   return Math.round((db-da)/86400000);
+}
+function fmtMillions(v){
+  return (Math.max(0,Number(v)||0)/1000000).toFixed(1)+'M';
+}
+function getTierState(){
+  var kick=Math.max(0,Math.floor(Number(S.kick)||0));
+  var levels=[
+    {name:'Kickoff Fan',min:0,target:10000},
+    {name:'Elite Fan',min:10000,target:50000},
+    {name:'Legacy',min:50000,target:250000},
+    {name:'Vanguard',min:250000,target:1000000},
+    {name:'Legend',min:1000000,target:1000000}
+  ];
+  var cur=levels[0];
+  for(var i=0;i<levels.length;i++){
+    if(kick>=levels[i].min) cur=levels[i];
+  }
+  var target=Math.max(cur.target,1);
+  var pct=Math.min(kick/target,1);
+  return {name:cur.name,target:target,pct:pct};
+}
+function renderHeaderStats(){
+  var tier=getTierState();
+  var tierEl=document.getElementById('hdr-tier');
+  if(tierEl) tierEl.textContent=tier.name;
+
+  var rankEl=document.getElementById('hdr-rank-line');
+  if(rankEl){
+    var rows=(typeof warBuildNationRows==='function')?warBuildNationRows():[];
+    var me=null;
+    for(var i=0;i<rows.length;i++){
+      if(rows[i].code===S.nationCode){ me=rows[i]; break; }
+    }
+    if(!me && rows[0]) me=rows[0];
+    if(me){
+      rankEl.textContent=me.f+' '+me.n+' #'+me.rank+' | Global #5,342';
+    } else {
+      rankEl.textContent='🇧🇷 Brazil #132 | Global #5,342';
+    }
+  }
+
+  var ring=document.getElementById('hdr-kick-ring');
+  if(ring){
+    var circumference=107;
+    ring.style.strokeDasharray=String(circumference);
+    ring.style.strokeDashoffset=String(circumference*(1-tier.pct));
+  }
+  var pctEl=document.getElementById('hdr-ring-pct');
+  if(pctEl) pctEl.textContent=Math.round(tier.pct*100)+'%';
+  var ringBtn=document.getElementById('hdr-ring-btn');
+  if(ringBtn) ringBtn.classList.toggle('pulse',tier.pct>0.8);
+}
+function tickHomeCountdown(){
+  var diff=Math.max(0,new Date(WORLD_CUP_KICKOFF).getTime()-Date.now());
+  var days=Math.floor(diff/86400000);
+  var line=document.getElementById('home-countdown');
+  if(line) line.textContent=days+' days until Kickoff';
+}
+function startHomeCountdown(){
+  tickHomeCountdown();
+  if(HOME_COUNTDOWN_TIMER) clearInterval(HOME_COUNTDOWN_TIMER);
+  HOME_COUNTDOWN_TIMER=setInterval(tickHomeCountdown,1000);
+}
+function renderHomeHero(){
+  tickHomeCountdown();
+  var rows=(typeof warBuildNationRows==='function')?warBuildNationRows():[];
+  var topA=rows[0],topB=rows[1];
+  var warEl=document.getElementById('home-war-live');
+  if(warEl && topA && topB){
+    warEl.textContent='⚔️ Nation War Live – '+topA.n+' vs '+topB.n;
+  }
+  var deltaEl=document.getElementById('home-war-delta');
+  if(deltaEl && topA){
+    var up=(Number(topA.changePct)||0)>=0;
+    deltaEl.classList.toggle('neg',!up);
+    deltaEl.textContent=topA.n+' '+(up?'+':'-')+Math.abs(Number(topA.changePct)||0).toFixed(1)+'% '+(up?'↑':'↓');
+  }
+  var fansEl=document.getElementById('home-live-fans');
+  if(fansEl){
+    var base=243182;
+    var pulse=(new Date().getSeconds()%11)*17;
+    fansEl.textContent=(base+pulse).toLocaleString('en-US');
+  }
+}
+function renderHomeQuickPlay(){
+  var freeLeft=(typeof P==='object' && Number.isFinite(Number(P.soloFreeLeft)))?Math.max(0,Math.floor(Number(P.soloFreeLeft))):3;
+  var pen=document.getElementById('home-pen-free');
+  if(pen) pen.textContent=freeLeft+' Free Left';
+
+  var answered=S.quizDoneToday?5:Math.max(0,Math.min(5,Math.floor(Number(S.qi)||0)));
+  var quiz=document.getElementById('home-quiz-left');
+  if(quiz) quiz.textContent=answered+'/5 Questions Left';
+
+  var refMul=document.getElementById('earn-ref-mult');
+  if(refMul && typeof getReferralBoostMultiplier==='function'){
+    refMul.textContent=getReferralBoostMultiplier()+'x';
+  }
+  var spinLeftEl=document.getElementById('earn-spin-left');
+  if(spinLeftEl && typeof spinLeft==='function'){
+    spinLeftEl.textContent=spinLeft();
+  }
+}
+function renderHomeNationMini(glow){
+  var wrap=document.getElementById('home-top-nations');
+  if(!wrap || typeof warBuildNationRows!=='function') return;
+  var rows=warBuildNationRows();
+  var top=rows.slice(0,3);
+  var html='';
+  for(var i=0;i<top.length;i++){
+    var row=top[i];
+    var up=(Number(row.changePct)||0)>=0;
+    html+='<div class="home-nation-row">'+
+      '<div class="home-nation-name">'+row.f+' '+row.n+'</div>'+
+      '<div class="home-nation-points">'+fmtMillions(row.totalKick)+'</div>'+
+      '<div class="home-nation-delta'+(up?'':' neg')+'">'+(up?'+':'-')+Math.abs(Number(row.changePct)||0).toFixed(1)+'% '+(up?'↑':'↓')+'</div>'+
+      '</div>';
+  }
+  wrap.innerHTML=html;
+  var card=document.getElementById('home-nation-mini');
+  if(card){
+    card.classList.remove('home-nation-glow');
+    if(glow){
+      card.classList.add('home-nation-glow');
+      setTimeout(function(){ card.classList.remove('home-nation-glow'); },700);
+    }
+  }
+  var me=null;
+  for(var j=0;j<rows.length;j++){
+    if(rows[j].code===S.nationCode){ me=rows[j]; break; }
+  }
+  if(!me && rows[0]) me=rows[0];
+  var contribution=Math.max(0,Math.floor(Number(S.weeklyKickEarned)||0));
+  if(contribution===0) contribution=540;
+  var line=document.getElementById('home-your-nation-line');
+  if(line && me){
+    line.textContent=me.f+' Your Nation Rank: #'+me.rank+' | Contribution: +'+contribution.toLocaleString('en-US')+' pts';
+  }
+}
+function goSpinFromHome(){
+  go('spin',document.querySelector('.nb[data-page="spin"]'));
+  setTimeout(function(){
+    var wheel=document.getElementById('spin-wheel');
+    if(wheel) wheel.scrollIntoView({behavior:'smooth',block:'center'});
+  },140);
+}
+function openInfoSection(sectionId){
+  INFO_SCROLL_TARGET=sectionId||'';
+  go('info',document.querySelector('.nb[data-page="info"]'));
+}
+function renderInfoHotSignals(){
+  var wrap=document.getElementById('info-pulse-content');
+  if(!wrap || !Array.isArray(PULSE_SIGNALS)) return;
+  var html='';
+  var lim=Math.min(5,PULSE_SIGNALS.length);
+  for(var i=0;i<lim;i++){
+    var s=PULSE_SIGNALS[i];
+    var level=String(s.impact||'MEDIUM').toUpperCase();
+    var cls=(level==='HIGH'?'high':(level==='LOW'?'low':'medium'));
+    html+='<div class="pulse-post">'+
+      '<div class="pulse-head">'+
+      '<div class="pulse-avatar sig">📡</div>'+
+      '<div class="pulse-meta">'+
+      '<div class="pulse-name">WC26 Hot Signal<span class="pulse-handle">@wc26_hotdesk</span><span class="pulse-dot">·</span><span class="pulse-time">'+(i+1)+'h</span></div>'+
+      '<div class="pulse-tag">Signal '+(i+1)+'</div>'+
+      '</div></div>'+
+      '<div class="pulse-main">'+
+      '<div class="pulse-body">🚨 '+s.text+'</div>'+
+      '<span class="pulse-impact '+cls+'">Impact: '+level+'</span>'+
+      '</div></div>';
+  }
+  wrap.innerHTML=html;
+}
+function initInfoComposite(){
+  var rulesSrc=document.querySelector('#page-rules .rules-doc');
+  var rulesDst=document.getElementById('info-rules-content');
+  if(rulesSrc && rulesDst && !rulesDst.dataset.bound){
+    rulesDst.innerHTML=rulesSrc.innerHTML;
+    rulesDst.dataset.bound='1';
+  }
+  var pulseWrap=document.getElementById('info-pulse-content');
+  var pulseSrc=document.querySelector('#page-pulse .pulse-feed');
+  if(pulseWrap && pulseSrc && !pulseWrap.dataset.bound){
+    var clone=pulseSrc.cloneNode(true);
+    clone.querySelectorAll('[id]').forEach(function(el){ el.removeAttribute('id'); });
+    clone.querySelectorAll('[onclick]').forEach(function(el){ el.removeAttribute('onclick'); });
+    clone.querySelectorAll('button').forEach(function(btn){ btn.disabled=true; });
+    pulseWrap.innerHTML='';
+    pulseWrap.appendChild(clone);
+    pulseWrap.dataset.bound='1';
+  } else if(pulseWrap && !pulseWrap.dataset.bound){
+    renderInfoHotSignals();
+    pulseWrap.dataset.bound='1';
+  }
+}
+function infoAiSend(){
+  var input=document.getElementById('info-ai-input');
+  var log=document.getElementById('info-ai-log');
+  if(!log) return;
+  var q=input?String(input.value||'').trim():'';
+  if(!q){
+    log.textContent='Coming soon: AI assistant is in preview mode.';
+    return;
+  }
+  log.textContent='🤖 Coming soon. Demo reply: "'+q+'" received. Match and reward insights will be available in a later update.';
+  if(input) input.value='';
 }
 function parseSpinBonus(v){
   if(typeof v==='boolean') return v?1:0;
@@ -2225,6 +2693,8 @@ function applyKick(delta){
   updateKick();
   apiSyncEconomy();
   if(applied>0){
+    launchConfetti();
+    renderHomeNationMini(true);
     var warsPage=document.getElementById('page-wars');
     if(warsPage && warsPage.classList.contains('on')) initWars();
     var pulsePage=document.getElementById('page-pulse');
@@ -2247,7 +2717,27 @@ function go(id,btn){
   if(!page) return;
   page.classList.add('on');
   if(btn) btn.classList.add('on');
+  else {
+    var autoBtn=document.querySelector('.nb[data-page="'+id+'"]');
+    if(!autoBtn && (id==='pulse' || id==='rules')) autoBtn=document.querySelector('.nb[data-page="info"]');
+    if(!autoBtn && id==='penalty') autoBtn=document.querySelector('.nb[data-page="home"]');
+    if(autoBtn) autoBtn.classList.add('on');
+  }
   if(id==='pulse' && typeof pulseRender==='function') pulseRender();
+  if(id==='info'){
+    initInfoComposite();
+    if(INFO_SCROLL_TARGET){
+      var target=document.getElementById(INFO_SCROLL_TARGET);
+      if(target) setTimeout(function(){ target.scrollIntoView({behavior:'smooth',block:'start'}); },140);
+      INFO_SCROLL_TARGET='';
+    }
+  }
+  if(id==='home'){
+    renderHeaderStats();
+    renderHomeQuickPlay();
+    renderHomeHero();
+    renderHomeNationMini(false);
+  }
   if(id==='spin'){
     if(typeof spinSyncState==='function') spinSyncState();
     if(typeof spinRender==='function') spinRender();
@@ -2743,11 +3233,16 @@ async function finalizeQuizDay(){
 }
 function updateKick(){
   var formatted=S.kick.toLocaleString();
-  document.getElementById('kval').textContent=formatted;
-  document.getElementById('home-kv').textContent=formatted;
-  document.getElementById('home-adkick').textContent=formatted+' / 5,000 KICK';
-  document.getElementById('earn-kick-lbl').textContent=formatted+' / 15,000 KICK';
+  var kval=document.getElementById('kval'); if(kval) kval.textContent=formatted;
+  var homeKv=document.getElementById('home-kv'); if(homeKv) homeKv.textContent=formatted;
+  var homeAd=document.getElementById('home-adkick'); if(homeAd) homeAd.textContent=formatted+' / 5,000 KICK';
+  var earnLbl=document.getElementById('earn-kick-lbl');
+  if(earnLbl) earnLbl.textContent='8k / 15k KICK - CAP 15,000';
   updateTicketUI();
+  renderHeaderStats();
+  renderHomeQuickPlay();
+  renderHomeHero();
+  renderHomeNationMini(false);
 }
 
 function initAirdropPreview(){
@@ -3011,6 +3506,9 @@ function initWars(){
   warRenderPodium(rows);
   warRenderList(rows);
   warUpdateNationControls(rows);
+  renderHeaderStats();
+  renderHomeHero();
+  renderHomeNationMini(false);
 }
 
 /* ─────────── PULSE FEED ─────────── */
@@ -3300,6 +3798,7 @@ function initPulse(){
   pulseLoad();
   pulseEnsureToday();
   pulseRender();
+  renderInfoHotSignals();
 }
 
 /* ─────────── DAILY LUCKY SPIN ─────────── */
@@ -3611,6 +4110,7 @@ function spinRender(){
     shareBtn.disabled=shareCapReached;
     shareBtn.textContent=shareCapReached?'🚫 Daily cap reached (10/10)':'📣 Share WAR ranking (+1 spin) · '+shareCount;
   }
+  renderHomeQuickPlay();
 }
 async function spinUnlockInvite(){
   spinEnsureToday();
@@ -3814,6 +4314,7 @@ function penApplyDailyFromApi(penaltyState,economyState){
   var feeTxt=P.soloFreeLeft>0?('Free matches left: '+P.soloFreeLeft+'/3'):('Entry fee: 500 KICK/match');
   var soloLimit=document.getElementById('solo-limit');
   if(soloLimit) soloLimit.textContent=feeTxt+' · Shot win '+Math.round(P.soloShotRateNow*100)+'%';
+  renderHomeQuickPlay();
 }
 async function penSyncDailyFromApi(){
   try{
@@ -4379,6 +4880,7 @@ function penInitDaily(){
   if(!P.standbyPool.length && !P.selfStandbyQueued){
     document.getElementById('pvp-limit').textContent='Unlimited plays/day · Standby list';
   }
+  renderHomeQuickPlay();
   penSyncDailyFromApi();
 }
 function penUseDailySlot(mode){
@@ -4387,6 +4889,7 @@ function penUseDailySlot(mode){
   P.soloPlaysToday=d.soloPlays||0;
   P.soloFreeLeft=Math.max(0,3-P.soloPlaysToday);
   localStorage.setItem('pen_daily',JSON.stringify(d));
+  renderHomeQuickPlay();
 }
 function renderDailyDots(){
   var el=document.getElementById('daily-dots');
@@ -5517,7 +6020,7 @@ function drawBall(ctx, x, y, r){
 
 /* ─── no-ops for backward compat ─── */
 function openPenaltyLegacy(){}
-function closePenalty(){ go('home',document.querySelectorAll('.nb')[0]); cancelAnimationFrame(P.raf); }
+function closePenalty(){ go('home',document.querySelector('.nb[data-page="home"]')); cancelAnimationFrame(P.raf); }
 function initSwipe(){}
 function initKeeperZones(){}
 function startPenalty(){}
@@ -5528,6 +6031,22 @@ function exitArena(){}
 
 /* ─────────── TOAST ─────────── */
 var _tt;
+function launchConfetti(){
+  var wrap=document.getElementById('confetti');
+  if(!wrap) return;
+  wrap.innerHTML='';
+  var colors=['#1FBF6A','#F5C542','#E53935','#1E88E5','#FFFFFF'];
+  for(var i=0;i<20;i++){
+    var dot=document.createElement('span');
+    dot.className='confetti-dot';
+    dot.style.left=(12+Math.random()*76)+'%';
+    dot.style.top=(36+Math.random()*12)+'%';
+    dot.style.background=colors[i%colors.length];
+    dot.style.animationDelay=(Math.random()*0.1).toFixed(2)+'s';
+    wrap.appendChild(dot);
+  }
+  setTimeout(function(){ if(wrap) wrap.innerHTML=''; },1000);
+}
 function showToast(msg){
   var el=document.getElementById('toastel');
   el.textContent=msg; el.classList.add('on');
