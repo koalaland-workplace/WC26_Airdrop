@@ -714,8 +714,8 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .pulse-main{margin-left:44px;}
 .pulse-body{font-size:13px;color:#e7e9ea;line-height:1.42;}
 .pulse-impact{
-  display:inline-block;margin-top:7px;padding:3px 9px;border-radius:999px;
-  font-size:10px;font-weight:700;letter-spacing:.3px;
+  display:inline-flex;align-items:center;gap:5px;margin-top:7px;padding:3px 9px;border-radius:999px;
+  font-size:10px;font-weight:700;letter-spacing:.2px;
 }
 .pulse-impact.high{color:#ff7b72;background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.35);}
 .pulse-impact.medium{color:#f5c542;background:rgba(245,197,66,.14);border:1px solid rgba(245,197,66,.35);}
@@ -2072,15 +2072,14 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <div class="pulse-main">
         <div class="pulse-body">
           <div id="pulse-signal-text">Mbappé injured during training</div>
-          <span class="pulse-impact high" id="pulse-impact-level">Impact Level: HIGH</span>
+          <span class="pulse-impact high" id="pulse-impact-level">🚨 High</span>
         </div>
         <div class="pulse-poll inline">
-          <button class="pulse-chip" id="pulse-vote-major" onclick="pulseVoteImpact('major')">⚡ Major +10</button>
-          <button class="pulse-chip" id="pulse-vote-minor" onclick="pulseVoteImpact('minor')">🟡 Minor +10</button>
-          <button class="pulse-chip" id="pulse-vote-none" onclick="pulseVoteImpact('none')">➖ No Impact +10</button>
-          <button class="pulse-chip primary" id="pulse-share-btn" onclick="pulseShareSignal()">Share (+25)</button>
+          <button class="pulse-chip" id="pulse-vote-major" onclick="pulseVoteImpact('major')">🚀 Major</button>
+          <button class="pulse-chip" id="pulse-vote-minor" onclick="pulseVoteImpact('minor')">🟨 Minor</button>
+          <button class="pulse-chip" id="pulse-vote-none" onclick="pulseVoteImpact('none')">⚪ No Impact</button>
+          <button class="pulse-chip primary" id="pulse-share-btn" onclick="pulseShareSignal()">📣 Share</button>
         </div>
-        <div class="pulse-quote" id="pulse-share-msg"></div>
         <div class="pulse-result" id="pulse-signal-result">Vote 1 action to claim +10 KICK.</div>
       </div>
     </div>
@@ -3390,8 +3389,7 @@ function renderInfoHotSignals(){
   var lim=Math.min(5,PULSE_SIGNALS.length);
   for(var i=0;i<lim;i++){
     var s=PULSE_SIGNALS[i];
-    var level=String(s.impact||'MEDIUM').toUpperCase();
-    var cls=(level==='HIGH'?'high':(level==='LOW'?'low':'medium'));
+    var meta=pulseImpactMeta(s.impact);
     html+='<div class="pulse-post">'+
       '<div class="pulse-head">'+
       '<div class="pulse-avatar sig">📡</div>'+
@@ -3401,7 +3399,7 @@ function renderInfoHotSignals(){
       '</div></div>'+
       '<div class="pulse-main">'+
       '<div class="pulse-body">🚨 '+s.text+'</div>'+
-      '<span class="pulse-impact '+cls+'">Impact: '+level+'</span>'+
+      '<span class="pulse-impact '+meta.cls+'">'+meta.icon+' '+meta.label+'</span>'+
       '</div></div>';
   }
   wrap.innerHTML=html;
@@ -4552,6 +4550,13 @@ function pulseSetResult(id,msg,good){
   el.textContent=msg;
   el.classList.toggle('good',!!good);
 }
+function pulseImpactMeta(level){
+  var lv=String(level||'MEDIUM').toUpperCase();
+  if(lv==='HIGH') return {cls:'high',icon:'🚨',label:'High'};
+  if(lv==='LOW') return {cls:'low',icon:'🟢',label:'Low'};
+  return {cls:'medium',icon:'🟨',label:'Medium'};
+}
+
 function pulseRenderHotList(){
   var wrap=document.getElementById('pulse-hot-list');
   if(!wrap) return;
@@ -4559,7 +4564,7 @@ function pulseRenderHotList(){
   var times=['10m','35m','1h','2h','3h'];
   for(var i=0;i<Math.min(5,PULSE_SIGNALS.length);i++){
     var s=PULSE_SIGNALS[i];
-    var level=(s.impact||'MEDIUM').toUpperCase();
+    var meta=pulseImpactMeta(s.impact);
     var item=document.createElement('div');
     item.className='pulse-hot-item';
     var head=document.createElement('div');
@@ -4574,8 +4579,8 @@ function pulseRenderHotList(){
     head.appendChild(time);
     item.appendChild(head);
     var impact=document.createElement('span');
-    impact.className='pulse-impact '+(level==='HIGH'?'high':(level==='LOW'?'low':'medium'));
-    impact.textContent='Impact: '+level;
+    impact.className='pulse-impact '+meta.cls;
+    impact.textContent=meta.icon+' '+meta.label;
     item.appendChild(impact);
     wrap.appendChild(item);
   }
@@ -4587,11 +4592,10 @@ function pulseRender(){
   if(sText) sText.textContent='🚨 '+signal.text;
   var sImpact=document.getElementById('pulse-impact-level');
   if(sImpact){
-    sImpact.textContent='Impact Level: '+signal.impact;
-    sImpact.className='pulse-impact'+(signal.impact==='HIGH'?' high':'');
+    var metaMain=pulseImpactMeta(signal.impact);
+    sImpact.textContent=metaMain.icon+' '+metaMain.label;
+    sImpact.className='pulse-impact '+metaMain.cls;
   }
-  var sMsg=document.getElementById('pulse-share-msg');
-  if(sMsg) sMsg.textContent=pulseShareMessage();
   pulseRenderHotList();
 
   var voteDone=!!PULSE.impactVote;
@@ -4604,7 +4608,7 @@ function pulseRender(){
   var shareBtn=document.getElementById('pulse-share-btn');
   if(shareBtn){
     shareBtn.disabled=PULSE.signalShared;
-    shareBtn.textContent=PULSE.signalShared?'✅ Shared':'Share (+25)';
+    shareBtn.textContent=PULSE.signalShared?'✅ Shared':'📣 Share';
   }
   pulseSetResult('pulse-signal-result',PULSE.signalMsg,PULSE.signalGood);
 
