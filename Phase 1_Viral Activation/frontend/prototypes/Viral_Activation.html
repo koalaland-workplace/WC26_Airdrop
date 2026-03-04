@@ -840,6 +840,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .ps-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;}
 .ps-actions .btn{padding:9px;font-size:10px;}
 .ps-start{grid-column:1/-1;}
+.ps-start.ps-wait{opacity:.58;}
 
 /* ── ARENA ── */
 #pen-arena{display:none;position:relative;width:100%;border-radius:var(--r);overflow:hidden;background:#071810;}
@@ -1898,12 +1899,12 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 }
 .spin-big-btn{
   position:relative;z-index:1;overflow:hidden;
-  display:flex;align-items:center;justify-content:center;gap:9px;
-  width:100%;max-width:290px;margin:22px auto 0;padding:14px 20px;border:none;border-radius:50px;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  width:100%;max-width:203px;margin:15px auto 0;padding:10px 14px;border:none;border-radius:36px;
   background:linear-gradient(135deg,var(--g) 0%,var(--y) 50%,var(--g) 100%);
   background-size:200%;
-  font-family:var(--font-display);font-weight:800;font-size:15px;letter-spacing:1.4px;text-transform:uppercase;color:#0e1a24;
-  box-shadow:0 4px 20px rgba(31,191,106,.4),0 8px 40px rgba(245,197,66,.2),inset 0 1px 0 rgba(255,255,255,.3);
+  font-family:var(--font-display);font-weight:800;font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:#0e1a24;
+  box-shadow:0 3px 14px rgba(31,191,106,.35),0 6px 26px rgba(245,197,66,.18),inset 0 1px 0 rgba(255,255,255,.3);
   cursor:pointer;
   animation:btnShimmer 2s linear infinite;
 }
@@ -1920,16 +1921,16 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .spin-big-btn.disabled::after{display:none;}
 .spin-big-btn.disabled{
   width:auto;
-  max-width:238px;
-  padding:9px 14px;
-  font-size:11.5px;
-  letter-spacing:.9px;
-  border-radius:28px;
-  gap:6px;
+  max-width:188px;
+  padding:7px 10px;
+  font-size:8.8px;
+  letter-spacing:.7px;
+  border-radius:22px;
+  gap:5px;
 }
-.spin-big-btn.disabled .spin-big-btn-ico{font-size:14px;}
+.spin-big-btn.disabled .spin-big-btn-ico{font-size:11px;}
 #spinBigBtnTxt{white-space:nowrap;}
-.spin-big-btn-ico{font-size:18px;}
+.spin-big-btn-ico{font-size:13px;}
 
 .spin-result-msg{
   margin-top:10px;
@@ -2953,7 +2954,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       </div>
 
       <!-- PvP -->
-      <div class="pen-mode pm-pvp" onclick="penStartPvpSelected()">
+      <div class="pen-mode pm-pvp" onclick="penEnterPvpLobby()">
         <div class="pm-art">
           <!-- Two strikers facing each other -->
           <svg viewBox="0 0 52 80" height="70" xmlns="http://www.w3.org/2000/svg">
@@ -3010,7 +3011,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <div class="ps-actions">
         <button class="btn b-r" id="pen-standby-join" onclick="penToggleStandby()">+ Register Standby</button>
         <button class="btn b-gh" id="pen-standby-refresh" onclick="penRefreshStandby(true)">↻ Refresh List</button>
-        <button class="btn b-r ps-start b-dis" id="pen-standby-start" onclick="penStartPvpSelected()">⚔️ Select waiting player to start</button>
+        <button class="btn b-r ps-start ps-wait" id="pen-standby-start" onclick="penStartPvpSelected()">⚔️ Select waiting player to start</button>
       </div>
     </div>
 
@@ -6071,7 +6072,7 @@ function penRenderStandbyList(){
   var startBtn=document.getElementById('pen-standby-start');
   var sel=penGetSelectedStandby();
   if(startBtn){
-    startBtn.className='btn b-r ps-start'+(sel?'':' b-dis');
+    startBtn.className='btn b-r ps-start'+(sel?'':' ps-wait');
     startBtn.textContent=sel?('⚔️ Start PvP vs '+sel.name):'⚔️ Select waiting player to start';
   }
   var pvpLimit=document.getElementById('pvp-limit');
@@ -6152,6 +6153,21 @@ function penFocusStandby(){
     box.scrollIntoView({behavior:'smooth',block:'nearest'});
   }
   showToast('Select a waiting player or register standby.');
+}
+function penEnterPvpLobby(){
+  penRefreshStandby(true);
+  var opp=penGetSelectedStandby();
+  if(opp){
+    showToast('⚔️ Ready vs '+opp.name+'. Tap Start to begin.');
+  } else if(P.selfStandbyQueued){
+    showToast('🕒 You are queued. Tap Refresh List to find opponent.');
+  } else {
+    showToast('No opponent yet. Register standby first.');
+  }
+  var box=document.getElementById('pen-standby-box');
+  if(box&&box.scrollIntoView){
+    box.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
 }
 function penStartPvpSelected(){
   var opp=penGetSelectedStandby();
