@@ -5997,9 +5997,21 @@ function penGetBgRect(W,H){
 var PEN_STANDBY_POOL_KEY='pen_pvp_standby_pool_v1';
 var PEN_STANDBY_SELF_KEY='pen_pvp_standby_self_v1';
 
+function penParseLocalJson(key,fallback){
+  try{
+    var raw=localStorage.getItem(key);
+    if(!raw) return fallback;
+    var parsed=JSON.parse(raw);
+    return (parsed===undefined||parsed===null)?fallback:parsed;
+  }catch(e){
+    try{ localStorage.removeItem(key); }catch(_){ }
+    return fallback;
+  }
+}
+
 function penStandbyLoadSelfState(){
-  var raw=JSON.parse(localStorage.getItem(PEN_STANDBY_SELF_KEY)||'{}');
-  return {queued:!!raw.queued,since:raw.since||0};
+  var raw=penParseLocalJson(PEN_STANDBY_SELF_KEY,{});
+  return {queued:!!raw.queued,since:Number(raw.since)||0};
 }
 function penStandbySaveSelfState(){
   localStorage.setItem(PEN_STANDBY_SELF_KEY,JSON.stringify({
@@ -6008,13 +6020,21 @@ function penStandbySaveSelfState(){
   }));
 }
 function penStandbyLoadPool(){
-  var raw=JSON.parse(localStorage.getItem(PEN_STANDBY_POOL_KEY)||'[]');
+  var raw=penParseLocalJson(PEN_STANDBY_POOL_KEY,[]);
   if(!Array.isArray(raw)) raw=[];
   var now=Date.now();
   return raw.filter(function(x){
     return x && typeof x.id==='string' && typeof x.name==='string' &&
-      typeof x.flag==='string' && typeof x.kick==='number' &&
-      typeof x.since==='number' && (now-x.since)<45*60*1000;
+      typeof x.flag==='string' && Number.isFinite(Number(x.kick)) &&
+      Number.isFinite(Number(x.since)) && (now-Number(x.since))<45*60*1000;
+  }).map(function(x){
+    return {
+      id:String(x.id),
+      name:String(x.name),
+      flag:String(x.flag),
+      kick:Math.max(0,Math.floor(Number(x.kick)||0)),
+      since:Number(x.since)||Date.now()
+    };
   });
 }
 function penStandbySavePool(list){
@@ -6172,6 +6192,13 @@ function penEnterPvpLobby(){
     penStartMatch('pvp',opp);
     return;
   }
+  if(FRONTEND_ONLY_DEMO){
+    var demoOpp=P.pvpOpps[Math.floor(Math.random()*P.pvpOpps.length)];
+    opp=penBuildStandbyEntry(demoOpp);
+    showToast('🧪 Demo auto-match vs '+opp.name);
+    penStartMatch('pvp',opp);
+    return;
+  }
   if(P.selfStandbyQueued){
     showToast('🕒 You are queued. Tap Refresh List to find opponent.');
   } else {
@@ -6185,6 +6212,13 @@ function penEnterPvpLobby(){
 function penStartPvpSelected(){
   var opp=penGetSelectedStandby();
   if(!opp){
+    if(FRONTEND_ONLY_DEMO){
+      var demoOpp=P.pvpOpps[Math.floor(Math.random()*P.pvpOpps.length)];
+      opp=penBuildStandbyEntry(demoOpp);
+      showToast('🧪 Demo auto-match vs '+opp.name);
+      penStartMatch('pvp',opp);
+      return;
+    }
     if(!P.standbyPool.length){
       if(P.selfStandbyQueued) showToast('Waiting for opponent... Tap Refresh List.');
       else showToast('No waiting players. Register standby first.');
@@ -6491,21 +6525,24 @@ function penShowShotFx(text,color,dur){
 /* ─── DAILY LIMITS ─── */
 function penInitDaily(){
   var today=getDayKey();
-  var saved=JSON.parse(localStorage.getItem('pen_daily')||'{}');
+  var saved=penParseLocalJson('pen_daily',{});
+  if(!saved || typeof saved!=='object') saved={};
   if(saved.date!==today){ saved={date:today,soloPlays:0}; }
-  saved.soloPlays=Math.max(0,saved.soloPlays||0);
+  saved.soloPlays=Math.max(0,Math.floor(Number(saved.soloPlays)||0));
   P.soloPlaysToday=saved.soloPlays;
   P.soloFreeLeft=Math.max(0,3-saved.soloPlays);
   P.soloShotRateNow=getSoloShotRate();
   P._dailyData=saved;
   renderDailyDots();
   var feeTxt=P.soloFreeLeft>0?('Free matches left: '+P.soloFreeLeft+'/3'):('Entry fee: 500 KICK/match');
-  document.getElementById('solo-limit').textContent=feeTxt+' · Shot win '+Math.round(P.soloShotRateNow*100)+'%';
-  if(!P.standbyPool.length && !P.selfStandbyQueued){
-    document.getElementById('pvp-limit').textContent='Unlimited plays/day · Standby list';
+  var soloLimit=document.getElementById('solo-limit');
+  if(soloLimit) soloLimit.textContent=feeTxt+' · Shot win '+Math.round(P.soloShotRateNow*100)+'%';
+  var pvpLimit=document.getElementById('pvp-limit');
+  if(pvpLimit && !P.standbyPool.length && !P.selfStandbyQueued){
+    pvpLimit.textContent='Unlimited plays/day · Standby list';
   }
   renderHomeQuickPlay();
-  penSyncDailyFromApi();
+  try{ penSyncDailyFromApi(); }catch(_){ }
 }
 function penUseDailySlot(mode){
   var d=P._dailyData;
@@ -6546,11 +6583,17 @@ async function penStartMatch(mode,chosenOpp){
 
   if(mode==='pvp'){
     if(!chosenOpp){
-      showToast('Select a waiting player from standby list first.');
-      penFocusStandby();
-      return;
+      if(FRONTEND_ONLY_DEMO){
+        chosenOpp=penBuildStandbyEntry(P.pvpOpps[Math.floor(Math.random()*P.pvpOpps.length)]);
+      } else {
+        showToast('Select a waiting player from standby list first.');
+        penFocusStandby();
+        return;
+      }
     }
-    showToast('👥 Matched from standby: '+chosenOpp.flag+' '+chosenOpp.name);
+    if(chosenOpp&&chosenOpp.flag&&chosenOpp.name){
+      showToast('👥 Matched from standby: '+chosenOpp.flag+' '+chosenOpp.name);
+    }
   }
 
   var startData=null;
@@ -6572,13 +6615,18 @@ async function penStartMatch(mode,chosenOpp){
       P.soloShotRateNow=getSoloShotRate();
       P.soloEntryFeeNow=0;
       if(P.soloFreeLeft<=0){
-        if(S.kick<500){
-          showToast('❌ Need 500 KICK to enter SOLO match.');
-          return;
+        if(FRONTEND_ONLY_DEMO){
+          P.soloEntryFeeNow=0;
+          showToast('🧪 Demo mode: SOLO entry fee waived.');
+        } else {
+          if(S.kick<500){
+            showToast('❌ Need 500 KICK to enter SOLO match.');
+            return;
+          }
+          applyKick(-500);
+          P.soloEntryFeeNow=500;
+          showToast('🎟️ SOLO entry fee: -500 KICK');
         }
-        applyKick(-500);
-        P.soloEntryFeeNow=500;
-        showToast('🎟️ SOLO entry fee: -500 KICK');
       }
       penUseDailySlot('solo');
       penInitDaily();
