@@ -340,7 +340,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .rdelta{font-size:8px;font-weight:700;padding:2px 4px;border-radius:4px;margin-top:1px;display:inline-block;}
 .dup{background:rgba(31,191,106,.12);color:var(--g);}
 .ddn{background:var(--rdd);color:var(--rd);}
-.ytag{position:absolute;right:7px;top:50%;transform:translateY(-50%);font-family:'Montserrat',sans-serif;font-size:7.5px;font-weight:800;letter-spacing:1px;color:var(--g);}
+.ytag{position:absolute;right:7px;top:53%;transform:translateY(-50%);font-family:'Montserrat',sans-serif;font-size:7.5px;font-weight:800;letter-spacing:1px;color:var(--g);}
 
 /* ── DAILY LUCKY SPIN ── */
 .spin-top{text-align:center;padding:10px 0 8px;}
@@ -961,11 +961,23 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .logo-fallback.on{display:flex;}
 .hdr-copy{min-width:0;flex:1;}
 .brand-nm{
-  font-family:var(--font-display);font-weight:700;font-size:12px;color:var(--pw);
+  font-family:var(--font-display);font-weight:700;font-size:12px;color:var(--pw);text-transform:uppercase;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   background:none;-webkit-text-fill-color:initial;
 }
-.brand-sub{display:none;}
+.brand-sub{
+  display:block;
+  margin-top:1px;
+  font-size:8.8px;
+  line-height:1.05;
+  color:var(--c-gray);
+  font-weight:700;
+  letter-spacing:-0.2px;
+  text-transform:none;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
 .hdr-kick-row{display:flex;align-items:center;gap:6px;margin-top:4px;}
 .kick-chip{
   padding:4px 8px;border-radius:999px;border:1px solid rgba(31,191,106,.35);
@@ -1002,11 +1014,27 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   border-top:1px solid rgba(255,255,255,.08);
 }
 .nb{
-  min-height:50px;padding:5px 2px;border-radius:10px;font-family:var(--font-body);
-  font-size:8px;letter-spacing:.3px;font-weight:600;color:var(--c-gray);
+  min-height:52px;
+  padding:4px 2px;
+  border-radius:10px;
+  font-family:var(--font-body);
+  font-size:8px;
+  letter-spacing:.3px;
+  font-weight:600;
+  color:var(--c-gray);
   background:rgba(255,255,255,.03);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  gap:3px;
 }
-.nb .ni{font-size:14px;}
+.nb .ni{
+  font-size:16px;
+  line-height:1;
+  display:block;
+}
 .nb.on{
   border-color:transparent;
   background:linear-gradient(135deg,var(--c-green),var(--c-yellow));
@@ -1021,8 +1049,14 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     linear-gradient(140deg,#101f2b,#281f26 55%,#2f1e1e);
 }
 .home-watermark{
-  position:absolute;right:-10px;top:-12px;width:96px;opacity:.1;pointer-events:none;
-  filter:grayscale(1) contrast(1.2);
+  position:absolute;
+  right:-6px;
+  top:53%;
+  transform:translateY(-50%);
+  width:98px;
+  opacity:.08;
+  pointer-events:none;
+  filter:grayscale(1) contrast(1.08);
 }
 .home-h2{font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--pw);}
 .home-countdown{
@@ -1035,34 +1069,151 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .home-war-delta.neg{color:var(--c-red);}
 .home-fans{margin-top:4px;font-size:10px;color:var(--c-gray);}
 
-.home-spin-cta{cursor:pointer;}
-.home-sec-title{
-  font-family:var(--font-display);font-weight:600;font-size:12px;color:var(--pw);margin-bottom:8px;
+.home-spin-cta{
+  cursor:pointer;
+  position:relative;
+  overflow:hidden;
+  border-color:rgba(245,197,66,.26);
+  background:
+    radial-gradient(circle at 50% -10%,rgba(245,197,66,.24),transparent 42%),
+    radial-gradient(circle at 8% 50%,rgba(30,136,229,.2),transparent 44%),
+    radial-gradient(circle at 92% 45%,rgba(31,191,106,.18),transparent 40%),
+    linear-gradient(165deg,#0f2232 0%,#102a2a 58%,#0f2534 100%);
 }
-.home-spin-sub{font-size:10px;color:var(--c-gray);margin-top:7px;margin-bottom:8px;}
+.home-spin-cta::before{
+  content:'';
+  position:absolute;
+  inset:-2px;
+  background:
+    radial-gradient(circle at 0 52%,rgba(255,255,255,.11),transparent 22%),
+    radial-gradient(circle at 100% 52%,rgba(255,255,255,.1),transparent 22%);
+  pointer-events:none;
+}
+.home-spin-cta::after{
+  content:'';
+  position:absolute;
+  left:6px;
+  right:6px;
+  top:39%;
+  height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.22),transparent);
+  pointer-events:none;
+}
+.home-spin-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:7px;
+}
+.home-sec-title{
+  font-family:var(--font-display);
+  font-weight:700;
+  font-size:12.5px;
+  color:var(--pw);
+  letter-spacing:.2px;
+}
+.home-spin-tag{
+  flex-shrink:0;
+  font-size:8px;
+  font-weight:700;
+  letter-spacing:.9px;
+  color:#0a181f;
+  padding:4px 7px;
+  border-radius:999px;
+  background:linear-gradient(135deg,var(--c-yellow),#ffd86c);
+  box-shadow:0 4px 10px rgba(245,197,66,.25);
+}
+.home-spin-scene{
+  position:relative;
+  border-radius:12px;
+  padding:7px 8px 8px;
+  background:
+    radial-gradient(circle at 50% 0,rgba(255,255,255,.12),transparent 55%),
+    linear-gradient(180deg,rgba(13,36,39,.46),rgba(11,26,38,.26));
+  border:1px solid rgba(255,255,255,.09);
+}
+.home-spin-preview{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.home-spin-wheel-wrap{
+  position:relative;
+  width:118px;
+  height:106px;
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+}
+.home-spin-wheel{
+  width:104px;
+  height:104px;
+  border-radius:50%;
+  position:relative;
+  margin-top:2px;
+  background:
+    conic-gradient(#153f35 0 45deg,#1a4b3b 45deg 90deg,#15456d 90deg 135deg,#1b5c89 135deg 180deg,#1f6aa3 180deg 225deg,#1e5f72 225deg 270deg,#34612f 270deg 315deg,#5a4b24 315deg 360deg);
+  border:2px solid rgba(255,255,255,.18);
+  box-shadow:
+    0 0 0 5px rgba(10,26,36,.35),
+    0 0 20px rgba(30,136,229,.22),
+    0 0 26px rgba(245,197,66,.18),
+    inset 0 0 14px rgba(255,255,255,.1);
+  animation:homeSpinPreview 20s linear infinite;
+}
+.home-spin-wheel::before{
+  content:'⚽';
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:24px;
+  text-shadow:0 2px 6px rgba(0,0,0,.5);
+}
+.home-spin-pointer{
+  position:absolute;
+  top:0;
+  left:50%;
+  transform:translateX(-50%);
+  width:0;
+  height:0;
+  border-left:10px solid transparent;
+  border-right:10px solid transparent;
+  border-top:15px solid var(--c-yellow);
+  filter:drop-shadow(0 0 8px rgba(245,197,66,.55));
+  z-index:2;
+}
+.home-spin-sub{
+  font-size:10.2px;
+  color:#d7dfeb;
+  margin-top:8px;
+  margin-bottom:8px;
+  text-align:center;
+}
+.home-spin-rewards{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  margin-bottom:9px;
+  flex-wrap:wrap;
+}
+.home-spin-chip{
+  font-size:8.7px;
+  font-weight:700;
+  letter-spacing:.25px;
+  color:#e9f4ff;
+  padding:4px 7px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.16);
+  background:linear-gradient(135deg,rgba(30,136,229,.25),rgba(31,191,106,.22));
+}
 .home-spin-cta .btn{
   background:linear-gradient(135deg,var(--c-green),var(--c-yellow));
   color:#0c171d;
   box-shadow:0 0 16px rgba(245,197,66,.35);
-}
-.home-spin-preview{
-  display:flex;align-items:center;justify-content:center;margin:2px 0 6px;
-}
-.home-spin-wheel{
-  width:92px;height:92px;border-radius:50%;position:relative;
-  background:
-    conic-gradient(#0f2838 0 51deg,#17364a 51deg 102deg,#1f4455 102deg 153deg,#2a3a48 153deg 204deg,#314d45 204deg 255deg,#3d4f2f 255deg 306deg,#4f3f28 306deg 360deg);
-  border:2px solid rgba(255,255,255,.14);
-  box-shadow:0 0 18px rgba(245,197,66,.18), inset 0 0 14px rgba(255,255,255,.08);
-  animation:homeSpinPreview 20s linear infinite;
-}
-.home-spin-wheel::before{
-  content:'⚽';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  font-size:20px;
-}
-.home-spin-pointer{
-  width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;
-  border-top:13px solid var(--c-yellow);margin:0 auto -3px;filter:drop-shadow(0 0 6px rgba(245,197,66,.5));
 }
 @keyframes homeSpinPreview{to{transform:rotate(360deg)}}
 
@@ -1148,10 +1299,11 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 <!-- HEADER -->
 <header class="hdr">
   <div class="hdr-l">
-    <img id="logo-img" class="hdr-logo" src="./WC26-LOGO.jpg" alt="WC26 official logo">
+    <img id="logo-img" class="hdr-logo" src="./WC26-LOGO-PNG.png" alt="WC26 official logo">
     <div id="logo-fallback" class="logo-fallback">WC26</div>
     <div class="hdr-copy">
-      <span class="brand-nm">WC26 Nation Journey – Phase 1</span>
+      <span class="brand-nm">WC26 NFT FANTASY</span>
+      <span class="brand-sub">National Journey Airdrop – Viral Activation</span>
       <div class="hdr-kick-row">
         <button class="kick-chip" id="hdr-kick-chip" onclick="go('earn',document.querySelector('.nb[data-page=\'earn\']'))">
           <span class="kick-lbl">KICK:</span>
@@ -1184,15 +1336,15 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <button class="nb on" data-page="home" onclick="go('home',this)"><span class="ni">🏠</span>HOME</button>
   <button class="nb" data-page="wars" onclick="go('wars',this)"><span class="ni">⚔️</span>WARS</button>
   <button class="nb" data-page="spin" onclick="go('spin',this)"><span class="ni">🎯</span>SPIN</button>
-  <button class="nb" data-page="quiz" onclick="go('quiz',this)"><span class="ni">❓</span>QUIZ</button>
-  <button class="nb" data-page="earn" onclick="go('earn',this)"><span class="ni">📈</span>EARN</button>
+  <button class="nb" data-page="quiz" onclick="go('quiz',this)"><span class="ni">🧠</span>QUIZ</button>
+  <button class="nb" data-page="earn" onclick="go('earn',this)"><span class="ni">💎</span>EARN</button>
   <button class="nb" data-page="info" onclick="go('info',this)"><span class="ni">ℹ️</span>INFO</button>
 </nav>
 
 <!-- ══════════ HOME ══════════ -->
 <div id="page-home" class="pg on">
   <div class="card acc-r home-hero-banner" id="home-hero-banner">
-    <img src="./WC26-LOGO.jpg" alt="WC26 watermark" class="home-watermark" id="home-watermark">
+    <img src="./WC26-LOGO-PNG.png" alt="WC26 watermark" class="home-watermark" id="home-watermark">
     <div class="home-h2">🔥 World Cup Countdown</div>
     <div class="home-countdown" id="home-countdown">-- days until Kickoff</div>
     <div class="home-war-live" id="home-war-live">⚔️ Nation War Live – Brazil vs Argentina</div>
@@ -1201,14 +1353,24 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   </div>
 
   <div class="card acc-y home-spin-cta" id="home-spin-cta" onclick="goSpinFromHome()">
-    <div class="home-sec-title">🎯 FREE SPIN READY</div>
-    <div class="home-spin-preview">
-      <div>
-        <div class="home-spin-pointer"></div>
-        <div class="home-spin-wheel"></div>
+    <div class="home-spin-head">
+      <div class="home-sec-title">🎯 FREE SPIN READY</div>
+      <div class="home-spin-tag">MATCHDAY BONUS</div>
+    </div>
+    <div class="home-spin-scene">
+      <div class="home-spin-preview">
+        <div class="home-spin-wheel-wrap">
+          <div class="home-spin-pointer"></div>
+          <div class="home-spin-wheel"></div>
+        </div>
       </div>
     </div>
-    <div class="home-spin-sub">Tap to spin – 50–200 KICK + boosts</div>
+    <div class="home-spin-sub">Tap to spin - 50-200 KICK + boosts</div>
+    <div class="home-spin-rewards">
+      <span class="home-spin-chip">50-200 KICK</span>
+      <span class="home-spin-chip">BOOSTS</span>
+      <span class="home-spin-chip">LUCKY DROP</span>
+    </div>
     <button class="btn b-y" onclick="event.stopPropagation();goSpinFromHome()">SPIN NOW</button>
   </div>
 
@@ -2275,7 +2437,7 @@ var LOGO='iVBORw0KGgoAAAANSUhEUgAAANoAAAFVCAYAAACJjPFiAAEAAElEQVR4nOz96bNkSXLlif
 
 /* ─────────── INIT ─────────── */
 window.onload=async function(){
-  var logoPath='./WC26-LOGO.jpg';
+  var logoPath='./WC26-LOGO-PNG.png';
   var logoEl=document.getElementById('logo-img');
   if(logoEl){
     logoEl.src=logoPath;
