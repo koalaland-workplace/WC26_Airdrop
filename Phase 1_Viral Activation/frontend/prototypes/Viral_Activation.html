@@ -1552,8 +1552,8 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .pique-q-btn:active{transform:scale(.97);}
 .pique-q-btn:hover{background:rgba(30,136,229,.16);border-color:rgba(30,136,229,.55);}
 .pique-stage{
-  width:min(52vw,170px);
-  margin:2px auto 10px;
+  width:min(36.4vw,119px);
+  margin:0 auto 6px;
   position:relative;
   aspect-ratio:1.25/1;
   display:flex;
@@ -1563,20 +1563,20 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 }
 .pique-goal{
   position:absolute;
-  top:-2px;
+  top:-1px;
   left:50%;
   transform:translateX(-50%);
   font-family:var(--font-display);
-  font-size:9px;
+  font-size:6.5px;
   font-weight:800;
-  letter-spacing:.8px;
+  letter-spacing:.56px;
   color:var(--c-yellow);
-  text-shadow:0 0 10px rgba(245,197,66,.45);
+  text-shadow:0 0 8px rgba(245,197,66,.45);
   animation:piqueCheer 1.8s ease-in-out infinite;
 }
 .pique-orbit{
   position:absolute;
-  inset:12px 8px 3px;
+  inset:8px 6px 2px;
   border-radius:52% 48% 54% 46% / 46% 54% 48% 52%;
   border:2px solid transparent;
   background:linear-gradient(#0f1928,#0f1928) padding-box,conic-gradient(from 40deg,#4e8fff,#8f7cff,#ff6b54,#f5c542,#35d0b0,#4e8fff) border-box;
@@ -1594,29 +1594,29 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   justify-content:center;
   background:radial-gradient(circle at 34% 28%,#4d61ff 0%,#322884 48%,#1a1540 100%);
   border:2px solid rgba(168,159,255,.8);
-  box-shadow:0 10px 22px rgba(22,35,84,.42),0 0 16px rgba(87,132,255,.24);
+  box-shadow:0 7px 15px rgba(22,35,84,.42),0 0 11px rgba(87,132,255,.24);
   animation:piqueFloat 2.6s ease-in-out infinite;
 }
 .pique-hat{
   position:absolute;
-  top:-10px;
+  top:-7px;
   left:50%;
   transform:translateX(-50%);
-  width:34px;
-  height:14px;
-  border-radius:10px 10px 6px 6px;
+  width:24px;
+  height:10px;
+  border-radius:7px 7px 4px 4px;
   background:linear-gradient(90deg,var(--c-green) 0 33%,var(--c-yellow) 33% 66%,var(--c-green) 66% 100%);
-  box-shadow:0 3px 7px rgba(0,0,0,.25);
+  box-shadow:0 2px 5px rgba(0,0,0,.25);
 }
 .pique-hat::before{
   content:'';
   position:absolute;
-  top:-4px;
+  top:-3px;
   left:50%;
   transform:translateX(-50%);
-  width:16px;
-  height:6px;
-  border-radius:6px;
+  width:11px;
+  height:4px;
+  border-radius:4px;
   background:#f4f8ff;
 }
 .pique-face{
@@ -1630,18 +1630,18 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .pique-eye{
   position:absolute;
   top:35%;
-  width:10px;
-  height:10px;
+  width:7px;
+  height:7px;
   border-radius:50%;
   background:#e2fbff;
-  box-shadow:0 0 10px rgba(171,241,255,.9);
+  box-shadow:0 0 7px rgba(171,241,255,.9);
   animation:piqueBlink 4s infinite;
   transform-origin:center;
 }
 .pique-eye::after{
   content:'';
   position:absolute;
-  inset:3px;
+  inset:2px;
   border-radius:50%;
   background:#74b6ff;
 }
@@ -1651,74 +1651,74 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   position:absolute;
   left:50%;
   bottom:30%;
-  width:28px;
-  height:12px;
-  border:3px solid #38dd7f;
+  width:20px;
+  height:8px;
+  border:2px solid #38dd7f;
   border-top:0;
   border-left-color:transparent;
   border-right-color:transparent;
-  border-radius:0 0 18px 18px;
+  border-radius:0 0 13px 13px;
   transform:translateX(-50%);
-  filter:drop-shadow(0 0 6px rgba(56,221,127,.44));
+  filter:drop-shadow(0 0 4px rgba(56,221,127,.44));
 }
 .pique-cheek{
   position:absolute;
   right:18%;
   top:46%;
-  width:9px;
-  height:20px;
-  border-radius:10px;
+  width:6px;
+  height:14px;
+  border-radius:7px;
   background:linear-gradient(180deg,#fbd44f,#eeb12e);
-  box-shadow:0 0 8px rgba(251,212,79,.45);
+  box-shadow:0 0 6px rgba(251,212,79,.45);
 }
 .pique-scarf{
   position:absolute;
   left:50%;
-  bottom:-9px;
+  bottom:-6px;
   transform:translateX(-50%);
-  width:42px;
-  height:11px;
-  border-radius:9px;
+  width:29px;
+  height:8px;
+  border-radius:6px;
   background:linear-gradient(90deg,#ef4545 0 48%,#f5f7ff 48% 52%,#ef4545 52% 100%);
-  box-shadow:0 3px 7px rgba(0,0,0,.22);
+  box-shadow:0 2px 5px rgba(0,0,0,.22);
 }
 .pique-scarf::before,
 .pique-scarf::after{
   content:'';
   position:absolute;
-  bottom:-7px;
-  width:8px;
-  height:11px;
-  border-radius:4px;
+  bottom:-5px;
+  width:6px;
+  height:8px;
+  border-radius:3px;
   background:linear-gradient(180deg,#ef4545,#bb2f2f);
 }
-.pique-scarf::before{left:6px;}
-.pique-scarf::after{right:6px;}
+.pique-scarf::before{left:4px;}
+.pique-scarf::after{right:4px;}
 .pique-ball{
   position:absolute;
-  right:-9px;
-  bottom:8px;
-  width:16px;
-  height:16px;
+  right:-6px;
+  bottom:6px;
+  width:11px;
+  height:11px;
   border-radius:50%;
   background:radial-gradient(circle at 30% 28%,#ffffff 0 30%,#d9e0ea 40%,#8793a7 100%);
   border:1px solid rgba(255,255,255,.55);
-  box-shadow:0 2px 7px rgba(0,0,0,.32);
+  box-shadow:0 2px 6px rgba(0,0,0,.32);
   animation:piqueBallKick 1.9s ease-in-out infinite;
 }
 .pique-tag{
-  margin-top:6px;
-  min-width:74px;
+  margin-top:4px;
+  min-width:52px;
   text-align:center;
-  padding:5px 10px;
-  border-radius:10px;
+  padding:4px 7px;
+  border-radius:7px;
   font-family:var(--font-display);
   font-weight:800;
-  font-size:10px;
-  letter-spacing:.8px;
+  font-size:7px;
+  letter-spacing:.55px;
   color:#e8f1ff;
   background:linear-gradient(135deg,#7a39ff,#5d23dd);
-  box-shadow:0 6px 14px rgba(64,36,160,.4);
+  box-shadow:0 4px 10px rgba(64,36,160,.4);
 }
 .ai-input-row{display:flex;gap:8px;}
 .ai-input{
