@@ -1,12 +1,8 @@
 import type { AdminRole } from "@prisma/client";
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
-import { z } from "zod";
 import { hasPermission } from "../common/permissions.js";
 import type { AccessTokenPayload } from "../common/types.js";
-
-const sseAuthSchema = z.object({
-  accessToken: z.string().min(20).optional()
-});
+import { getAccessTokenFromCookie } from "../auth/cookies.js";
 
 function nowMs(): number {
   return Date.now();
@@ -22,8 +18,7 @@ async function authorizeRealtime(
     return;
   }
 
-  const parsed = sseAuthSchema.safeParse(request.query);
-  const accessToken = parsed.success ? parsed.data.accessToken : undefined;
+  const accessToken = getAccessTokenFromCookie(request);
   if (!accessToken) {
     throw app.httpErrors.unauthorized("Missing access token");
   }

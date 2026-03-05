@@ -51,3 +51,14 @@ Fastify + TypeScript + Prisma + Redis backend cho WC26 NFT FANTASY admin.
 - `GET /api/v1/audit-logs`
 - `GET /api/v1/reports/kick-ledger/summary`
 - `GET /api/v1/reports/kick-ledger/export.csv`
+- `GET /api/v1/reports/audit-logs/export.csv`
+- `GET /api/v1/referrals/metrics`
+- `GET /api/v1/referrals/chains`
+- `GET /api/v1/referrals/flagged`
+- `GET|PUT /api/v1/referrals/config`
+- `GET /api/v1/matches`
+- `POST /api/v1/matches/upsert`
+- `PATCH /api/v1/matches/:id/status`
+- `GET /api/v1/missions`
+- `POST /api/v1/missions/upsert`
+- `PATCH /api/v1/missions/:id/toggle`

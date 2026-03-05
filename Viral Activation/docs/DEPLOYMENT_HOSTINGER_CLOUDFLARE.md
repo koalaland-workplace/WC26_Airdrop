@@ -78,6 +78,7 @@ WantedBy=multi-user.target
 ## Security checklist
 
 - Keep Fastify port private (`127.0.0.1` only).
+- Set `COOKIE_SECURE=true` in production env.
 - Rotate JWT secrets periodically.
 - Force `REQUIRE_TELEGRAM_SIGNATURE=true` in production.
 - Enforce TOTP for `owner/admin`.

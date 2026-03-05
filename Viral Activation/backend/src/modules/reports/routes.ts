@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { AdminRole } from "@prisma/client";
 import { hasPermission } from "../common/permissions.js";
 import type { AccessTokenPayload } from "../common/types.js";
+import { getAccessTokenFromCookie } from "../auth/cookies.js";
 
 const auditQuerySchema = z.object({
   module: z.string().min(1).optional(),
@@ -14,16 +15,21 @@ const auditQuerySchema = z.object({
   offset: z.coerce.number().min(0).default(0)
 });
 
+const auditExportSchema = z.object({
+  module: z.string().min(1).optional(),
+  action: z.string().min(1).optional(),
+  actorId: z.string().min(1).optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  limit: z.coerce.number().min(1).max(5000).default(2000)
+});
+
 const reportQuerySchema = z.object({
   userId: z.string().min(1).optional(),
   source: z.string().min(1).optional(),
   from: z.string().optional(),
   to: z.string().optional(),
   limit: z.coerce.number().min(1).max(5000).default(2000)
-});
-
-const reportAuthSchema = z.object({
-  accessToken: z.string().min(20).optional()
 });
 
 function toDateOrUndefined(value?: string): Date | undefined {
@@ -50,9 +56,7 @@ async function authorizeReports(
     await app.requirePermission("reports.read")(request, reply);
     return;
   }
-
-  const parsed = reportAuthSchema.safeParse(request.query);
-  const accessToken = parsed.success ? parsed.data.accessToken : undefined;
+  const accessToken = getAccessTokenFromCookie(request);
   if (!accessToken) {
     throw app.httpErrors.unauthorized("Missing access token");
   }
@@ -243,6 +247,88 @@ export const reportsRoutes: FastifyPluginAsync = async (app) => {
       const stamp = new Date().toISOString().slice(0, 10);
       reply.header("content-type", "text/csv; charset=utf-8");
       reply.header("content-disposition", `attachment; filename=\"kick-ledger-${stamp}.csv\"`);
+      return reply.send(lines.join("\n"));
+    }
+  );
+
+  app.get(
+    "/api/v1/reports/audit-logs/export.csv",
+    {
+      preHandler: async (request, reply) => {
+        await authorizeReports(app, request, reply);
+      }
+    },
+    async (request, reply) => {
+      const q = auditExportSchema.parse(request.query);
+      const from = toDateOrUndefined(q.from);
+      const to = toDateOrUndefined(q.to);
+      const where = {
+        ...(q.module ? { module: q.module } : {}),
+        ...(q.action ? { action: { contains: q.action, mode: "insensitive" as const } } : {}),
+        ...(q.actorId ? { actorId: q.actorId } : {}),
+        ...(from || to
+          ? {
+              createdAt: {
+                ...(from ? { gte: from } : {}),
+                ...(to ? { lte: to } : {})
+              }
+            }
+          : {})
+      };
+
+      const rows = await app.prisma.auditLog.findMany({
+        where,
+        include: {
+          actor: {
+            select: {
+              username: true,
+              role: true
+            }
+          }
+        },
+        orderBy: { createdAt: "desc" },
+        take: q.limit
+      });
+
+      const headers = [
+        "id",
+        "createdAt",
+        "module",
+        "action",
+        "actorId",
+        "actorUsername",
+        "actorRole",
+        "targetType",
+        "targetId",
+        "ipAddress",
+        "before",
+        "after"
+      ];
+      const lines = [
+        headers.join(","),
+        ...rows.map((row) =>
+          [
+            row.id,
+            row.createdAt.toISOString(),
+            row.module,
+            row.action,
+            row.actorId ?? "",
+            row.actor?.username ?? "",
+            row.actor?.role ?? "",
+            row.targetType ?? "",
+            row.targetId ?? "",
+            row.ipAddress ?? "",
+            row.before ? JSON.stringify(row.before) : "",
+            row.after ? JSON.stringify(row.after) : ""
+          ]
+            .map(csvEscape)
+            .join(",")
+        )
+      ];
+
+      const stamp = new Date().toISOString().slice(0, 10);
+      reply.header("content-type", "text/csv; charset=utf-8");
+      reply.header("content-disposition", `attachment; filename=\"audit-logs-${stamp}.csv\"`);
       return reply.send(lines.join("\n"));
     }
   );

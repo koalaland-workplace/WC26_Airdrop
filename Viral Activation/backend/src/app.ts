@@ -17,14 +17,27 @@ import { boardRoutes } from "./modules/board/routes.js";
 import { piqueRoutes } from "./modules/pique/routes.js";
 import { reportsRoutes } from "./modules/reports/routes.js";
 import { realtimeRoutes } from "./modules/realtime/routes.js";
+import { referralsRoutes } from "./modules/referrals/routes.js";
+import { matchesRoutes } from "./modules/matches/routes.js";
+import { missionsRoutes } from "./modules/missions/routes.js";
 
 export async function createApp() {
   const config = loadConfig();
   const app = Fastify({ logger: true });
   app.decorate("appConfig", config);
+  const corsOrigin =
+    config.corsOrigin === "*"
+      ? true
+      : config.corsOrigin
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean);
 
   await app.register(fastifySensible);
-  await app.register(fastifyCors, { origin: config.corsOrigin });
+  await app.register(fastifyCors, {
+    origin: corsOrigin,
+    credentials: true
+  });
   await app.register(fastifyRateLimit, {
     max: 100,
     timeWindow: "1 minute"
@@ -46,6 +59,9 @@ export async function createApp() {
   await app.register(piqueRoutes);
   await app.register(reportsRoutes);
   await app.register(realtimeRoutes);
+  await app.register(referralsRoutes);
+  await app.register(matchesRoutes);
+  await app.register(missionsRoutes);
 
   app.get("/api/v1/ws/feed", { websocket: true }, (connection) => {
     const timer = setInterval(() => {

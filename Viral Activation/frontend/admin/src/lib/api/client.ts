@@ -20,6 +20,7 @@ export const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8787"
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers ?? {})
@@ -36,6 +37,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
   }
   return (await res.json()) as T;
+}
+
+async function requestBlob(path: string, init?: RequestInit): Promise<Blob> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    credentials: "include",
+    ...init
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `HTTP ${res.status}`);
+  }
+  return res.blob();
 }
 
 function authedHeaders(accessToken: string): HeadersInit {
@@ -369,18 +382,43 @@ export async function getSystemQueue(accessToken: string): Promise<SystemQueueSn
   });
 }
 
-export function buildKickLedgerExportUrl(
+export async function downloadKickLedgerCsv(
   accessToken: string,
   query: { userId?: string; source?: string; from?: string; to?: string; limit?: number } = {}
-): string {
+): Promise<Blob> {
   const params = new URLSearchParams();
-  params.set("accessToken", accessToken);
   Object.entries(query).forEach(([k, v]) => {
     if (v !== undefined && v !== null && v !== "") {
       params.set(k, String(v));
     }
   });
-  return `${API_BASE}/api/v1/reports/kick-ledger/export.csv?${params.toString()}`;
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return requestBlob(`/api/v1/reports/kick-ledger/export.csv${suffix}`, {
+    headers: authedHeaders(accessToken)
+  });
+}
+
+export async function downloadAuditLogsCsv(
+  accessToken: string,
+  query: {
+    module?: string;
+    action?: string;
+    actorId?: string;
+    from?: string;
+    to?: string;
+    limit?: number;
+  } = {}
+): Promise<Blob> {
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") {
+      params.set(k, String(v));
+    }
+  });
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return requestBlob(`/api/v1/reports/audit-logs/export.csv${suffix}`, {
+    headers: authedHeaders(accessToken)
+  });
 }
 
 export type FeedSnapshotPayload = {
@@ -401,15 +439,157 @@ export type FeedSnapshotPayload = {
   }>;
 };
 
-function streamUrl(path: string, accessToken: string): string {
-  const join = path.includes("?") ? "&" : "?";
-  return `${API_BASE}${path}${join}accessToken=${encodeURIComponent(accessToken)}`;
-}
-
 export function openSseStream(
   path: "/api/v1/realtime/feed" | "/api/v1/realtime/health" | "/api/v1/realtime/queue",
-  accessToken: string
+  _accessToken: string
 ): EventSource {
-  const es = new EventSource(streamUrl(path, accessToken));
+  const es = new EventSource(`${API_BASE}${path}`, { withCredentials: true });
   return es;
+}
+
+export interface ReferralsMetrics {
+  totalRefs: number;
+  activeChains: number;
+  avgBoost: number;
+  flagged: number;
+}
+
+export interface ReferralChain {
+  inviterUserId: string;
+  inviterUsername: string;
+  f1Count: number;
+  f2Count: number;
+  active7dCount: number;
+  totalKickAwarded: number;
+  flaggedCount: number;
+}
+
+export interface ReferralFlaggedItem {
+  id: string;
+  inviterUserId: string;
+  invitedUserId: string | null;
+  level: number;
+  status: string;
+  season: string;
+  kickAward: number;
+  riskScore: number;
+  createdAt: string;
+  inviter: AppUser;
+  invited: AppUser | null;
+}
+
+export interface ReferralConfig {
+  f1Register: number;
+  f1Active7d: number;
+  f2Register: number;
+  f2Active7d: number;
+  maxF1PerSeason: number;
+}
+
+export async function getReferralsMetrics(accessToken: string): Promise<ReferralsMetrics> {
+  return request("/api/v1/referrals/metrics", {
+    headers: authedHeaders(accessToken)
+  });
+}
+
+export async function listReferralChains(
+  accessToken: string,
+  query: { limit?: number; offset?: number } = {}
+): Promise<{ items: ReferralChain[]; total: number }> {
+  const params = new URLSearchParams();
+  if (query.limit) params.set("limit", String(query.limit));
+  if (query.offset) params.set("offset", String(query.offset));
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return request(`/api/v1/referrals/chains${suffix}`, {
+    headers: authedHeaders(accessToken)
+  });
+}
+
+export async function listReferralFlagged(
+  accessToken: string,
+  query: { limit?: number; offset?: number } = {}
+): Promise<{ items: ReferralFlaggedItem[]; total: number }> {
+  const params = new URLSearchParams();
+  if (query.limit) params.set("limit", String(query.limit));
+  if (query.offset) params.set("offset", String(query.offset));
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return request(`/api/v1/referrals/flagged${suffix}`, {
+    headers: authedHeaders(accessToken)
+  });
+}
+
+export async function getReferralsConfig(accessToken: string): Promise<{ key: string; value: ReferralConfig }> {
+  return request("/api/v1/referrals/config", {
+    headers: authedHeaders(accessToken)
+  });
+}
+
+export async function updateReferralsConfig(
+  accessToken: string,
+  value: ReferralConfig
+): Promise<{ key: string; value: ReferralConfig }> {
+  return request("/api/v1/referrals/config", {
+    method: "PUT",
+    headers: authedHeaders(accessToken),
+    body: JSON.stringify(value)
+  });
+}
+
+export interface MatchFixture {
+  id: string;
+  groupCode: string;
+  homeNation: string;
+  awayNation: string;
+  stadium: string;
+  city: string | null;
+  kickoffAt: string;
+  status: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  highlight: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function listMatches(
+  accessToken: string,
+  query: { groupCode?: string; status?: string; from?: string; to?: string; limit?: number; offset?: number } = {}
+): Promise<{ items: MatchFixture[]; total: number }> {
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") params.set(k, String(v));
+  });
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return request(`/api/v1/matches${suffix}`, {
+    headers: authedHeaders(accessToken)
+  });
+}
+
+export interface MissionItem {
+  id: string;
+  code: string;
+  name: string;
+  phase: string;
+  category: string;
+  rewardKick: number;
+  isActive: boolean;
+  capPerDay: number | null;
+  stats: {
+    completions: number;
+    awardedKick: number;
+  };
+}
+
+export async function listMissions(
+  accessToken: string,
+  query: { active?: boolean; category?: string; limit?: number; offset?: number } = {}
+): Promise<{ items: MissionItem[]; total: number }> {
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") params.set(k, String(v));
+  });
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return request(`/api/v1/missions${suffix}`, {
+    headers: authedHeaders(accessToken)
+  });
 }

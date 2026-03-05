@@ -136,6 +136,15 @@ body {
   border-color: var(--green);
 }
 
+.form-g label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+
 #sidebar {
   width: var(--sidebar);
   min-width: var(--sidebar);

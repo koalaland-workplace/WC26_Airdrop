@@ -53,15 +53,18 @@ model AdminSession {
 }
 
 model AppUser {
-  id         String       @id @default(cuid())
-  telegramId String?      @unique
-  username   String?
-  nationCode String       @default("VN")
-  status     UserStatus   @default(active)
-  kick       Int          @default(0)
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
-  ledgers    KickLedger[]
+  id               String           @id @default(cuid())
+  telegramId       String?          @unique
+  username         String?
+  nationCode       String           @default("VN")
+  status           UserStatus       @default(active)
+  kick             Int              @default(0)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  ledgers          KickLedger[]
+  referralsSent    ReferralEvent[]  @relation("ReferralInviter")
+  referredByEvents ReferralEvent[]  @relation("ReferralInvitee")
+  missions         MissionProgress[]
 }
 
 model KickLedger {
@@ -127,4 +130,72 @@ model AuditLog {
 
   @@index([createdAt])
   @@index([module, action])
+}
+
+model ReferralEvent {
+  id               String    @id @default(cuid())
+  inviterUserId    String
+  invitedUserId    String?
+  invitedTelegramId String?
+  level            Int       @default(1)
+  status           String    @default("registered")
+  season           String    @default("S1")
+  kickAward        Int       @default(0)
+  riskScore        Int       @default(0)
+  createdAt        DateTime  @default(now())
+  inviter          AppUser   @relation("ReferralInviter", fields: [inviterUserId], references: [id], onDelete: Cascade)
+  invited          AppUser?  @relation("ReferralInvitee", fields: [invitedUserId], references: [id], onDelete: SetNull)
+
+  @@index([inviterUserId, createdAt])
+  @@index([status, createdAt])
+}
+
+model MatchFixture {
+  id         String   @id @default(cuid())
+  groupCode  String
+  homeNation String
+  awayNation String
+  stadium    String
+  city       String?
+  kickoffAt  DateTime
+  status     String   @default("scheduled")
+  homeScore  Int?
+  awayScore  Int?
+  highlight  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([kickoffAt, status])
+  @@index([groupCode])
+}
+
+model Mission {
+  id         String            @id @default(cuid())
+  code       String            @unique
+  name       String
+  phase      String            @default("Viral Activation")
+  category   String            @default("daily")
+  rewardKick Int
+  isActive   Boolean           @default(true)
+  capPerDay  Int?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  progresses MissionProgress[]
+
+  @@index([isActive, category])
+}
+
+model MissionProgress {
+  id          String   @id @default(cuid())
+  missionId   String
+  userId      String
+  status      String   @default("completed")
+  progress    Int      @default(100)
+  awardedKick Int      @default(0)
+  createdAt   DateTime @default(now())
+  mission     Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  user        AppUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([missionId, createdAt])
+  @@index([userId, createdAt])
 }

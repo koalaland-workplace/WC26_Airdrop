@@ -3,23 +3,31 @@
   import { onDestroy, onMount } from "svelte";
   import {
     adjustKick,
-    buildKickLedgerExportUrl,
     createAnnouncement,
+    downloadAuditLogsCsv,
+    downloadKickLedgerCsv,
     getConfig,
     getDashboard,
+    getReferralsConfig,
+    getReferralsMetrics,
     getSystemHealth,
     getSystemQueue,
     listAuditLogs,
     listAnnouncements,
     listBoardMembers,
     listKickLedger,
+    listMatches,
+    listMissions,
     listPiqueConversations,
+    listReferralChains,
+    listReferralFlagged,
     listUsers,
     loginWithTelegram,
     logoutSession,
     openSseStream,
     refreshSession,
     updateConfig,
+    updateReferralsConfig,
     updateUserStatus,
     upsertBoardMember,
     verifyTotp,
@@ -30,7 +38,13 @@
     type BoardMember,
     type FeedSnapshotPayload,
     type KickLedgerItem,
+    type MatchFixture,
+    type MissionItem,
     type PiqueConversation,
+    type ReferralChain,
+    type ReferralConfig,
+    type ReferralFlaggedItem,
+    type ReferralsMetrics,
     type SystemHealthSnapshot,
     type SystemQueueSnapshot,
     type UserStatus
@@ -286,6 +300,23 @@
   let queueSnapshot: SystemQueueSnapshot | null = null;
   let auditLogs: AuditLogItem[] = [];
   let auditTotal = 0;
+  let referralsMetrics: ReferralsMetrics = {
+    totalRefs: 0,
+    activeChains: 0,
+    avgBoost: 0,
+    flagged: 0
+  };
+  let referralChains: ReferralChain[] = [];
+  let referralFlagged: ReferralFlaggedItem[] = [];
+  let referralConfig: ReferralConfig = {
+    f1Register: 200,
+    f1Active7d: 500,
+    f2Register: 50,
+    f2Active7d: 100,
+    maxF1PerSeason: 50
+  };
+  let matchesData: MatchFixture[] = [];
+  let missionsData: MissionItem[] = [];
 
   const topNations = [
     { flag: "🇧🇷", name: "Brazil", pts: "2.4M", rank: 1 },
@@ -293,18 +324,6 @@
     { flag: "🇫🇷", name: "France", pts: "1.9M", rank: 3 },
     { flag: "🇩🇪", name: "Germany", pts: "1.7M", rank: 4 },
     { flag: "🇻🇳", name: "Vietnam", pts: "1.2M", rank: 5 }
-  ];
-
-  const mockMatches = [
-    { group: "A", fixture: "Brazil vs Argentina", stadium: "Lusail", date: "2026-06-15" },
-    { group: "B", fixture: "France vs Germany", stadium: "MetLife", date: "2026-06-16" },
-    { group: "C", fixture: "Spain vs Portugal", stadium: "Azteca", date: "2026-06-17" }
-  ];
-
-  const mockMissions = [
-    { id: "M1", name: "Daily Quiz Champion", phase: "Viral Activation", reward: 500, active: true },
-    { id: "M2", name: "Spin 5x in One Day", phase: "Viral Activation", reward: 200, active: true },
-    { id: "M3", name: "Invite 3 Friends", phase: "Viral Activation", reward: 1500, active: true }
   ];
 
   const workflowStats = [
@@ -537,7 +556,10 @@
       loadPique(),
       loadBoard(),
       loadOperationalData(),
-      loadAuditLogs()
+      loadAuditLogs(),
+      loadReferrals(),
+      loadMatches(),
+      loadMissions()
     ]);
     liveFeed = [
       {
@@ -561,6 +583,9 @@
     if (next === "announce") await loadAnnouncements();
     if (next === "pique") await loadPique();
     if (next === "board") await loadBoard();
+    if (next === "referrals") await loadReferrals();
+    if (next === "matches") await loadMatches();
+    if (next === "missions") await loadMissions();
   }
 
   async function loadDashboard() {
@@ -626,6 +651,43 @@
   async function loadBoard() {
     const res = await withAccess((token) => listBoardMembers(token));
     boardMembers = res.items;
+  }
+
+  async function loadReferrals() {
+    const [metrics, chains, flagged, config] = await Promise.all([
+      withAccess((token) => getReferralsMetrics(token)),
+      withAccess((token) => listReferralChains(token, { limit: 100 })),
+      withAccess((token) => listReferralFlagged(token, { limit: 100 })),
+      withAccess((token) => getReferralsConfig(token))
+    ]);
+    referralsMetrics = metrics;
+    referralChains = chains.items;
+    referralFlagged = flagged.items;
+    referralConfig = config.value;
+  }
+
+  async function loadMatches() {
+    const res = await withAccess((token) => listMatches(token, { limit: 100 }));
+    matchesData = res.items;
+  }
+
+  async function loadMissions() {
+    const res = await withAccess((token) => listMissions(token, { limit: 100 }));
+    missionsData = res.items;
+  }
+
+  async function saveReferralsConfig() {
+    loading = true;
+    error = "";
+    try {
+      await withAccess((token) => updateReferralsConfig(token, referralConfig));
+      showToast("Referral config saved");
+      await loadReferrals();
+    } catch (e) {
+      error = (e as Error).message;
+    } finally {
+      loading = false;
+    }
   }
 
   async function changeUserStatus(id: string, status: UserStatus) {
@@ -747,14 +809,41 @@
     }
   }
 
-  function downloadLedgerCsv() {
-    const accessToken = get(session).accessToken;
-    if (!accessToken) {
-      error = "Session expired";
-      return;
+  function saveBlob(blob: Blob, fileName: string) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function downloadLedgerCsv() {
+    loading = true;
+    error = "";
+    try {
+      const blob = await withAccess((token) => downloadKickLedgerCsv(token, { limit: 5000 }));
+      saveBlob(blob, `kick-ledger-${new Date().toISOString().slice(0, 10)}.csv`);
+    } catch (e) {
+      error = (e as Error).message;
+    } finally {
+      loading = false;
     }
-    const url = buildKickLedgerExportUrl(accessToken, { limit: 5000 });
-    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  async function downloadAuditCsv() {
+    loading = true;
+    error = "";
+    try {
+      const blob = await withAccess((token) => downloadAuditLogsCsv(token, { limit: 5000 }));
+      saveBlob(blob, `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`);
+    } catch (e) {
+      error = (e as Error).message;
+    } finally {
+      loading = false;
+    }
   }
 
   async function doLogout() {
@@ -778,6 +867,10 @@
     announcements = [];
     piqueLogs = [];
     boardMembers = [];
+    referralChains = [];
+    referralFlagged = [];
+    matchesData = [];
+    missionsData = [];
     liveFeed = [];
   }
 
@@ -1201,10 +1294,10 @@
       {#if page === "referrals"}
         <div class="pg active" id="pg-referrals">
           <div class="grid-4" style="margin-bottom:16px">
-            <div class="stat-card" style="--accent:var(--blue)"><div class="stat-val">3,114</div><div class="stat-lbl">Total Refs</div></div>
-            <div class="stat-card" style="--accent:var(--green)"><div class="stat-val">821</div><div class="stat-lbl">Active Chains</div></div>
-            <div class="stat-card" style="--accent:var(--yellow)"><div class="stat-val">1.84x</div><div class="stat-lbl">Avg Boost</div></div>
-            <div class="stat-card" style="--accent:var(--red)"><div class="stat-val">12</div><div class="stat-lbl">Flagged</div></div>
+            <div class="stat-card" style="--accent:var(--blue)"><div class="stat-val">{referralsMetrics.totalRefs.toLocaleString()}</div><div class="stat-lbl">Total Refs</div></div>
+            <div class="stat-card" style="--accent:var(--green)"><div class="stat-val">{referralsMetrics.activeChains.toLocaleString()}</div><div class="stat-lbl">Active Chains</div></div>
+            <div class="stat-card" style="--accent:var(--yellow)"><div class="stat-val">{referralsMetrics.avgBoost.toFixed(2)}x</div><div class="stat-lbl">Avg Boost</div></div>
+            <div class="stat-card" style="--accent:var(--red)"><div class="stat-val">{referralsMetrics.flagged.toLocaleString()}</div><div class="stat-lbl">Flagged</div></div>
           </div>
           <div class="tab-row">
             <button class="tab" class:active={referralsTab === "chains"} on:click={() => (referralsTab = "chains")}>🔗 Chain Viewer</button>
@@ -1215,10 +1308,19 @@
           {#if referralsTab === "chains"}
             <div class="section">
               <div class="sec-hdr"><div class="sec-title"><div class="sec-dot b"></div>Referral Chains</div></div>
-              <div class="sec-body">
-                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-                  <div class="chain-node">@footballking</div><div class="chain-arrow">→</div><div class="chain-node">@new_user_1</div><div class="chain-arrow">→</div><div class="chain-node">@new_user_2</div>
-                </div>
+              <div class="sec-body" style="padding:0">
+                <table class="tbl"><thead><tr><th>Chain Root</th><th>F1</th><th>F2</th><th>Active 7d</th><th>KICK Awarded</th><th>Flagged</th></tr></thead><tbody>
+                  {#each referralChains as c}
+                    <tr>
+                      <td>@{c.inviterUsername}</td>
+                      <td>{c.f1Count}</td>
+                      <td>{c.f2Count}</td>
+                      <td>{c.active7dCount}</td>
+                      <td>{c.totalKickAwarded.toLocaleString()}</td>
+                      <td style={`color:${c.flaggedCount > 0 ? "var(--red)" : "var(--text2)"}`}>{c.flaggedCount}</td>
+                    </tr>
+                  {/each}
+                </tbody></table>
               </div>
             </div>
           {/if}
@@ -1226,9 +1328,17 @@
           {#if referralsTab === "abuse"}
             <div class="section">
               <div class="sec-hdr"><div class="sec-title"><div class="sec-dot r"></div>Flagged Chains</div></div>
-              <div class="sec-body">
-                <table class="tbl"><thead><tr><th>Chain Root</th><th>Reason</th><th>Risk</th></tr></thead><tbody>
-                  <tr><td>@sus_chain_1</td><td>Multi-account pattern</td><td style="color:var(--red)">22,400 KICK</td></tr>
+              <div class="sec-body" style="padding:0">
+                <table class="tbl"><thead><tr><th>Chain Root</th><th>Level</th><th>Status</th><th>Risk</th><th>Award</th></tr></thead><tbody>
+                  {#each referralFlagged as f}
+                    <tr>
+                      <td>@{f.inviter.username ?? "unknown"}</td>
+                      <td>F{f.level}</td>
+                      <td>{f.status}</td>
+                      <td style="color:var(--red)">{f.riskScore}</td>
+                      <td>{f.kickAward.toLocaleString()} KICK</td>
+                    </tr>
+                  {/each}
                 </tbody></table>
               </div>
             </div>
@@ -1236,12 +1346,18 @@
 
           {#if referralsTab === "config"}
             <div class="section">
-              <div class="sec-hdr"><div class="sec-title"><div class="sec-dot y"></div>Referral Multipliers</div></div>
+              <div class="sec-hdr">
+                <div class="sec-title"><div class="sec-dot y"></div>Referral Multipliers</div>
+                {#if can("missions.manage")}
+                  <button class="btn btn-g btn-sm" on:click={saveReferralsConfig}>SAVE CONFIG</button>
+                {/if}
+              </div>
               <div class="sec-body" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                <div class="form-g"><label for="f1-register">F1 Register</label><input id="f1-register" class="inp" value="200" /></div>
-                <div class="form-g"><label for="f1-active">F1 Active 7d</label><input id="f1-active" class="inp" value="500" /></div>
-                <div class="form-g"><label for="f2-register">F2 Register</label><input id="f2-register" class="inp" value="50" /></div>
-                <div class="form-g"><label for="f2-active">F2 Active 7d</label><input id="f2-active" class="inp" value="100" /></div>
+                <div class="form-g"><label for="f1-register">F1 Register</label><input id="f1-register" class="inp" type="number" bind:value={referralConfig.f1Register} /></div>
+                <div class="form-g"><label for="f1-active">F1 Active 7d</label><input id="f1-active" class="inp" type="number" bind:value={referralConfig.f1Active7d} /></div>
+                <div class="form-g"><label for="f2-register">F2 Register</label><input id="f2-register" class="inp" type="number" bind:value={referralConfig.f2Register} /></div>
+                <div class="form-g"><label for="f2-active">F2 Active 7d</label><input id="f2-active" class="inp" type="number" bind:value={referralConfig.f2Active7d} /></div>
+                <div class="form-g"><label for="f1-max">Max F1 / Season</label><input id="f1-max" class="inp" type="number" bind:value={referralConfig.maxF1PerSeason} /></div>
               </div>
             </div>
           {/if}
@@ -1253,9 +1369,15 @@
           <div class="section">
             <div class="sec-hdr"><div class="sec-title"><div class="sec-dot"></div>World Cup 2026 Schedule</div></div>
             <div class="sec-body" style="padding:0">
-              <table class="tbl"><thead><tr><th>Group</th><th>Fixture</th><th>Stadium</th><th>Date</th></tr></thead><tbody>
-                {#each mockMatches as m}
-                  <tr><td>{m.group}</td><td>{m.fixture}</td><td>{m.stadium}</td><td>{m.date}</td></tr>
+              <table class="tbl"><thead><tr><th>Group</th><th>Fixture</th><th>Stadium</th><th>Status</th><th>Date</th></tr></thead><tbody>
+                {#each matchesData as m}
+                  <tr>
+                    <td>{m.groupCode}</td>
+                    <td>{m.homeNation} vs {m.awayNation}</td>
+                    <td>{m.stadium}</td>
+                    <td>{m.status}</td>
+                    <td>{new Date(m.kickoffAt).toLocaleString()}</td>
+                  </tr>
                 {/each}
               </tbody></table>
             </div>
@@ -1268,11 +1390,12 @@
           <div class="section">
             <div class="sec-hdr"><div class="sec-title"><div class="sec-dot"></div>Mission Control</div></div>
             <div class="sec-body" style="padding:0">
-              <table class="tbl"><thead><tr><th>ID</th><th>Mission</th><th>Phase</th><th>Reward</th><th>Status</th></tr></thead><tbody>
-                {#each mockMissions as m}
+              <table class="tbl"><thead><tr><th>Code</th><th>Mission</th><th>Phase</th><th>Reward</th><th>Completions</th><th>Status</th></tr></thead><tbody>
+                {#each missionsData as m}
                   <tr>
-                    <td>{m.id}</td><td>{m.name}</td><td>{m.phase}</td><td>{m.reward} KICK</td>
-                    <td><span class={`tag ${m.active ? "tag-g" : "tag-r"}`}>{m.active ? "ACTIVE" : "OFF"}</span></td>
+                    <td>{m.code}</td><td>{m.name}</td><td>{m.phase}</td><td>{m.rewardKick} KICK</td>
+                    <td>{m.stats.completions}</td>
+                    <td><span class={`tag ${m.isActive ? "tag-g" : "tag-r"}`}>{m.isActive ? "ACTIVE" : "OFF"}</span></td>
                   </tr>
                 {/each}
               </tbody></table>
@@ -1338,7 +1461,10 @@
           <div class="section">
             <div class="sec-hdr">
               <div class="sec-title"><div class="sec-dot b"></div>Audit Trail ({auditTotal})</div>
-              <button class="btn btn-ghost btn-sm" on:click={loadAuditLogs}>REFRESH</button>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-ghost btn-sm" on:click={loadAuditLogs}>REFRESH</button>
+                <button class="btn btn-ghost btn-sm" on:click={downloadAuditCsv}>EXPORT CSV</button>
+              </div>
             </div>
             <div class="sec-body" style="padding:0">
               <table class="tbl"><thead><tr><th>Time</th><th>Actor</th><th>Module</th><th>Action</th><th>Target</th></tr></thead><tbody>

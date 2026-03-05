@@ -12,6 +12,10 @@ const schema = z.object({
     .string()
     .default("false")
     .transform((v) => v.toLowerCase() === "true"),
+  COOKIE_SECURE: z
+    .string()
+    .default("false")
+    .transform((v) => v.toLowerCase() === "true"),
   REDIS_URL: z.string().optional(),
   DATABASE_URL: z.string().min(1)
 });
@@ -24,6 +28,7 @@ export type AppConfig = {
   jwtRefreshSecret: string;
   telegramBotToken: string;
   requireTelegramSignature: boolean;
+  cookieSecure: boolean;
   redisUrl: string | null;
 };
 
@@ -40,6 +45,7 @@ export function loadConfig(): AppConfig {
     jwtRefreshSecret: parsed.data.JWT_REFRESH_SECRET,
     telegramBotToken: parsed.data.TELEGRAM_BOT_TOKEN,
     requireTelegramSignature: parsed.data.REQUIRE_TELEGRAM_SIGNATURE,
+    cookieSecure: parsed.data.COOKIE_SECURE,
     redisUrl: parsed.data.REDIS_URL ?? null
   };
 }

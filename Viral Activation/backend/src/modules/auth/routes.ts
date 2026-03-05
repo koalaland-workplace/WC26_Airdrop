@@ -5,6 +5,7 @@ import { verifyTelegramPayload } from "./telegram.js";
 import { issueSessionTokens, revokeRefreshToken, rotateRefreshToken } from "./service.js";
 import { writeAudit } from "../common/audit.js";
 import { randomToken } from "./crypto.js";
+import { clearAccessCookie, setAccessCookie } from "./cookies.js";
 
 const telegramLoginSchema = z.object({
   id: z.string().min(1),
@@ -63,6 +64,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       request.headers["user-agent"],
       request.ip
     );
+    setAccessCookie(reply, tokens.accessToken, app.appConfig.cookieSecure);
     await writeAudit(app.prisma, {
       actorId: member.id,
       actorRole: member.role,
@@ -117,6 +119,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       request.headers["user-agent"],
       request.ip
     );
+    setAccessCookie(reply, tokens.accessToken, app.appConfig.cookieSecure);
 
     await writeAudit(app.prisma, {
       actorId: member.id,
@@ -151,6 +154,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     if (!rotated) {
       throw app.httpErrors.unauthorized("Invalid refresh token");
     }
+    setAccessCookie(reply, rotated.accessToken, app.appConfig.cookieSecure);
     return reply.send({
       accessToken: rotated.accessToken,
       refreshToken: rotated.refreshToken,
@@ -166,6 +170,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   app.post("/api/v1/auth/logout", async (request, reply) => {
     const { refreshToken } = refreshSchema.parse(request.body);
     await revokeRefreshToken(app, refreshToken);
+    clearAccessCookie(reply, app.appConfig.cookieSecure);
     return reply.send({ ok: true });
   });
 
