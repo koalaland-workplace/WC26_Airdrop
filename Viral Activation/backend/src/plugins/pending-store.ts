@@ -54,8 +54,10 @@ export const pendingStorePlugin = fp(async (app) => {
 
   const redis = new Redis(redisUrl, {
     maxRetriesPerRequest: 1,
-    enableOfflineQueue: false
+    enableOfflineQueue: false,
+    lazyConnect: true
   });
+  await redis.connect();
   await redis.ping();
   app.decorate("pendingStore", new RedisStore(redis));
   app.addHook("onClose", async () => {
