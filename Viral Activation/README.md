@@ -5,8 +5,9 @@ Monorepo khởi tạo cho WC26 TeleCampaign, gồm prototype hiện tại + khun
 ## Structure
 
 - `frontend/prototypes/` : toàn bộ file HTML prototype và asset hiện tại (đã chuyển từ Downloads).
-- `frontend/app/` : app frontend chính thức (SPA/SSR) sẽ phát triển tiếp.
-- `backend/` : API/backend services.
+- `frontend/app/` : app frontend chính thức của mini app (legacy placeholder).
+- `frontend/admin/` : admin frontend mới (Svelte + TypeScript).
+- `backend/` : admin/backend API mới (Fastify + Prisma + Redis).
 - `shared/` : schema, constants, DTO dùng chung frontend/backend.
 - `docs/` : tài liệu chiến lược, policy, roadmap.
 - `infra/` : docker, deployment, env templates.
@@ -16,10 +17,9 @@ Monorepo khởi tạo cho WC26 TeleCampaign, gồm prototype hiện tại + khun
 
 - `frontend/prototypes/WC26_Community_Platform.html`
 
-## Next Backend Milestones
+## Workspace commands
 
-1. Define API contract (`auth`, `quiz`, `war`, `spin`, `penalty`, `referral`, `leaderboard`).
-2. Add database schema + migrations.
-3. Replace localStorage logic bằng backend persistence.
-4. Add anti-sybil validation pipeline.
-
+- `npm run dev:backend`
+- `npm run dev:admin`
+- `npm run build`
+- `npm run check`
