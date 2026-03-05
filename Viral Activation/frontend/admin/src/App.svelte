@@ -1,6 +1,6 @@
 <script lang="ts">
   import { get } from "svelte/store";
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import {
     adjustKick,
     createAnnouncement,
@@ -28,18 +28,185 @@
   } from "./lib/api/client";
   import { clearSession, session, setActive, setPending } from "./lib/stores/session";
 
-  type PageId = "dashboard" | "users" | "configs" | "announcements" | "pique" | "board";
+  type PageId =
+    | "dashboard"
+    | "users"
+    | "leaderboard"
+    | "referrals"
+    | "matches"
+    | "missions"
+    | "announce"
+    | "rewards"
+    | "mysterybox"
+    | "wc26token"
+    | "nationpass"
+    | "social"
+    | "spin"
+    | "penalty"
+    | "settings"
+    | "api"
+    | "pique"
+    | "workflows"
+    | "board"
+    | "adminme";
 
-  const pages: { id: PageId; label: string; icon: string }[] = [
-    { id: "dashboard", label: "Dashboard", icon: "📊" },
-    { id: "users", label: "Users & KICK", icon: "👥" },
-    { id: "configs", label: "Spin/Penalty", icon: "🎡" },
-    { id: "announcements", label: "Announcements", icon: "📣" },
-    { id: "pique", label: "PIQUE Logs", icon: "🤖" },
-    { id: "board", label: "Board", icon: "🛡" }
+  const TITLES: Record<PageId, string> = {
+    dashboard: "DASHBOARD",
+    users: "USER MANAGEMENT",
+    leaderboard: "LEADERBOARD",
+    referrals: "REFERRALS",
+    matches: "MATCH MANAGER",
+    missions: "MISSION CONTROL",
+    announce: "ANNOUNCEMENTS",
+    rewards: "REWARD TRANSACTIONS",
+    mysterybox: "MYSTERY BOX",
+    wc26token: "WC26 TOKEN",
+    nationpass: "NATION PASS",
+    social: "SOCIAL MEDIA",
+    spin: "LUCKY SPIN",
+    penalty: "PENALTY CHALLENGE",
+    settings: "SETTINGS",
+    api: "API CONNECTIONS",
+    pique: "PIQUE · OPENCLAW AI",
+    workflows: "WORKFLOWS",
+    board: "MANAGEMENT BOARD",
+    adminme: "ADMIN ACCOUNT"
+  };
+
+  const SUBS: Record<PageId, string> = {
+    dashboard: "WC26 NFT FANTASY · CONTROL CENTER",
+    users: "WC26 NFT FANTASY · MANAGEMENT",
+    leaderboard: "WC26 NFT FANTASY · RANKINGS",
+    referrals: "WC26 NFT FANTASY · REFERRAL CHAINS",
+    matches: "WC26 NFT FANTASY · MATCH OPS",
+    missions: "WC26 NFT FANTASY · MISSION OPS",
+    announce: "WC26 NFT FANTASY · ANNOUNCEMENTS",
+    rewards: "WC26 NFT FANTASY · REWARD LEDGER",
+    mysterybox: "WC26 NFT FANTASY · TICKET SYSTEM",
+    wc26token: "WC26 NFT FANTASY · TOKEN ECONOMY",
+    nationpass: "WC26 NFT FANTASY · NATION PASS",
+    social: "WC26 NFT FANTASY · SOCIAL TASKS",
+    spin: "WC26 NFT FANTASY · SPIN CONFIG",
+    penalty: "WC26 NFT FANTASY · PENALTY CONFIG",
+    settings: "WC26 NFT FANTASY · SYSTEM SETTINGS",
+    api: "WC26 NFT FANTASY · API STATUS",
+    pique: "WC26 NFT FANTASY · AI ASSISTANT",
+    workflows: "WC26 NFT FANTASY · AUTOMATION",
+    board: "WC26 NFT FANTASY · PERMISSIONS",
+    adminme: "WC26 NFT FANTASY · SECURITY"
+  };
+
+  const navSections: Array<{
+    label: string;
+    items: Array<{ id: PageId; icon: string; label: string }>;
+  }> = [
+    {
+      label: "📋 Management",
+      items: [
+        { id: "dashboard", icon: "⊞", label: "Dashboard" },
+        { id: "users", icon: "👥", label: "Users" },
+        { id: "leaderboard", icon: "🏆", label: "Leaderboard" },
+        { id: "referrals", icon: "🔗", label: "Referrals" },
+        { id: "matches", icon: "⚽", label: "Matches" },
+        { id: "missions", icon: "🎯", label: "Missions" },
+        { id: "announce", icon: "📣", label: "Announcements" }
+      ]
+    },
+    {
+      label: "💰 Economy",
+      items: [
+        { id: "rewards", icon: "💎", label: "Rewards Dist." },
+        { id: "mysterybox", icon: "🎁", label: "Mystery Box" },
+        { id: "wc26token", icon: "🪙", label: "WC26 Token" },
+        { id: "nationpass", icon: "🏴", label: "Nation Pass" }
+      ]
+    },
+    {
+      label: "⚙️ Comm & Config",
+      items: [
+        { id: "social", icon: "📡", label: "Social Media" },
+        { id: "spin", icon: "🎡", label: "Lucky Spin" },
+        { id: "penalty", icon: "🥅", label: "Penalty Challenge" },
+        { id: "settings", icon: "⚙", label: "Settings" }
+      ]
+    },
+    {
+      label: "🤖 AI & Integrations",
+      items: [
+        { id: "api", icon: "🔌", label: "API Connections" },
+        { id: "pique", icon: "✦", label: "PIQUE · OpenClaw" },
+        { id: "workflows", icon: "⚡", label: "Workflows" }
+      ]
+    },
+    {
+      label: "👑 Management Board",
+      items: [
+        { id: "board", icon: "🛡", label: "Member List" },
+        { id: "adminme", icon: "🔐", label: "Admin Account" }
+      ]
+    }
   ];
 
+  const rolePerms: Record<AdminRole, Set<string>> = {
+    owner: new Set([
+      "users.manage",
+      "kick.adjust",
+      "config.spin",
+      "config.penalty",
+      "missions.manage",
+      "announcements.manage",
+      "economy.manage",
+      "board.manage",
+      "settings.manage",
+      "api.manage",
+      "dashboard.read",
+      "reports.read",
+      "pique.logs.read"
+    ]),
+    admin: new Set([
+      "users.manage",
+      "kick.adjust",
+      "config.spin",
+      "config.penalty",
+      "missions.manage",
+      "announcements.manage",
+      "economy.manage",
+      "settings.manage",
+      "dashboard.read",
+      "reports.read",
+      "pique.logs.read"
+    ]),
+    moderator: new Set(["users.manage", "missions.manage", "announcements.manage", "dashboard.read"]),
+    support: new Set(["users.manage", "announcements.manage", "dashboard.read"]),
+    analyst: new Set(["dashboard.read", "reports.read"])
+  };
+
+  function requiredPermission(p: PageId): string | null {
+    if (p === "dashboard" || p === "leaderboard" || p === "matches") return "dashboard.read";
+    if (p === "users") return "users.manage";
+    if (p === "announce") return "announcements.manage";
+    if (p === "spin") return "config.spin";
+    if (p === "penalty") return "config.penalty";
+    if (p === "settings") return "settings.manage";
+    if (p === "api") return "api.manage";
+    if (p === "pique") return "pique.logs.read";
+    if (p === "board") return "board.manage";
+    if (p === "rewards") return "reports.read";
+    if (p === "mysterybox" || p === "wc26token" || p === "nationpass") return "economy.manage";
+    if (p === "missions" || p === "social" || p === "referrals" || p === "workflows" || p === "adminme") {
+      return "dashboard.read";
+    }
+    return null;
+  }
+
+  function can(perm: string): boolean {
+    const role = get(session).role;
+    if (!role) return false;
+    return rolePerms[role].has(perm);
+  }
+
   let page: PageId = "dashboard";
+  let sidebarCollapsed = false;
   let loading = false;
   let error = "";
   let toast = "";
@@ -59,7 +226,6 @@
   let userStatus: "all" | UserStatus = "all";
 
   let ledger: KickLedgerItem[] = [];
-
   let selectedUserId = "";
   let kickDelta = 2000;
   let kickReason = "Manual adjustment";
@@ -97,11 +263,84 @@
     isActive: true
   };
 
+  let leaderboardTab: "kick" | "ref" | "nation" = "kick";
+  let referralsTab: "chains" | "abuse" | "config" = "chains";
+  let socialTab: "channels" | "tasks" | "rewards" | "templates" = "channels";
+  let penaltyTab: "solo" | "pvp" | "physics" | "skins" = "solo";
+
+  let liveFeed: Array<{ icon: string; main: string; time: string; bg: string }> = [];
+  let feedTicker: ReturnType<typeof setInterval> | null = null;
+
+  const topNations = [
+    { flag: "🇧🇷", name: "Brazil", pts: "2.4M", rank: 1 },
+    { flag: "🇦🇷", name: "Argentina", pts: "2.1M", rank: 2 },
+    { flag: "🇫🇷", name: "France", pts: "1.9M", rank: 3 },
+    { flag: "🇩🇪", name: "Germany", pts: "1.7M", rank: 4 },
+    { flag: "🇻🇳", name: "Vietnam", pts: "1.2M", rank: 5 }
+  ];
+
+  const apiHealth = [
+    { name: "API Server", status: "OK", latency: "42ms", up: "99.9%", cls: "h-ok" },
+    { name: "Database", status: "OK", latency: "8ms", up: "99.7%", cls: "h-ok" },
+    { name: "Telegram Bot", status: "OK", latency: "-", up: "100%", cls: "h-ok" },
+    { name: "OpenClaw AI", status: "OK", latency: "340ms", up: "99.2%", cls: "h-ok" }
+  ];
+
+  const mockMatches = [
+    { group: "A", fixture: "Brazil vs Argentina", stadium: "Lusail", date: "2026-06-15" },
+    { group: "B", fixture: "France vs Germany", stadium: "MetLife", date: "2026-06-16" },
+    { group: "C", fixture: "Spain vs Portugal", stadium: "Azteca", date: "2026-06-17" }
+  ];
+
+  const mockMissions = [
+    { id: "M1", name: "Daily Quiz Champion", phase: "Viral Activation", reward: 500, active: true },
+    { id: "M2", name: "Spin 5x in One Day", phase: "Viral Activation", reward: 200, active: true },
+    { id: "M3", name: "Invite 3 Friends", phase: "Viral Activation", reward: 1500, active: true }
+  ];
+
+  const workflowStats = [
+    { name: "Auto KICK on Register", desc: "Grant 100 KICK to new users", runs: 2847, ok: 2841, cat: "User Lifecycle" },
+    { name: "Jackpot Announcement", desc: "Broadcast jackpot winners", runs: 14, ok: 14, cat: "Economy" },
+    { name: "Spin Streak Reward", desc: "3-day streak -> 500 KICK", runs: 431, ok: 428, cat: "Economy" }
+  ];
+
+  const socialChannels = [
+    { platform: "Telegram", name: "WC26 Journey Official", url: "t.me/wc26journey", tasks: 3, kick: 300, icon: "📱" },
+    { platform: "Twitter/X", name: "@WC26Journey", url: "twitter.com/wc26journey", tasks: 4, kick: 400, icon: "🐦" },
+    { platform: "YouTube", name: "WC26 Journey", url: "youtube.com/@wc26journey", tasks: 2, kick: 250, icon: "▶️" }
+  ];
+
+  const systemPrompt =
+    "You are PIQUE, the official AI assistant for WC26 NFT FANTASY. Focus on football gameplay, KICK strategy, and app guidance.";
+
+  function statusTag(status: UserStatus): string {
+    if (status === "vip") return "tag-y";
+    if (status === "banned") return "tag-r";
+    return "tag-g";
+  }
+
   function showToast(message: string) {
     toast = message;
     setTimeout(() => {
       if (toast === message) toast = "";
-    }, 2500);
+    }, 2600);
+  }
+
+  function pushFeed(item: { icon: string; main: string; time: string; bg: string }) {
+    liveFeed = [item, ...liveFeed].slice(0, 8);
+  }
+
+  function generateFeedItem(): { icon: string; main: string; time: string; bg: string } {
+    const usernamePool = users.length > 0 ? users.map((u) => `@${u.username ?? "player"}`) : ["@user_1024", "@new_player"];
+    const pickName = usernamePool[Math.floor(Math.random() * usernamePool.length)];
+    const options = [
+      { icon: "🎡", main: `<b>${pickName}</b> won <span style="color:var(--yellow)">1000 KICK</span> on Spin`, bg: "var(--bg4)" },
+      { icon: "✅", main: `<b>${pickName}</b> completed Social Task`, bg: "var(--green-dim)" },
+      { icon: "🔗", main: `<b>${pickName}</b> referred a new user`, bg: "var(--blue-dim)" },
+      { icon: "⚽", main: `<b>${pickName}</b> completed Penalty Challenge`, bg: "var(--purple-dim)" }
+    ];
+    const picked = options[Math.floor(Math.random() * options.length)];
+    return { ...picked, time: "just now" };
   }
 
   async function withAccess<T>(run: (token: string) => Promise<T>): Promise<T> {
@@ -175,6 +414,25 @@
 
   async function bootstrap() {
     await Promise.all([loadDashboard(), loadUsersAndLedger(), loadConfigs(), loadAnnouncements(), loadPique(), loadBoard()]);
+    liveFeed = [
+      {
+        icon: "🎡",
+        bg: "var(--bg4)",
+        main: `<b>@zkhalid</b> won <span style="color:var(--yellow)">10,000 KICK</span> JACKPOT!`,
+        time: "just now"
+      },
+      { icon: "👤", bg: "var(--green-dim)", main: "<b>@new_player_42</b> joined WC26 Journey", time: "1m ago" },
+      { icon: "✅", bg: "var(--blue-dim)", main: "<b>@amir_88</b> completed Twitter task", time: "2m ago" }
+    ];
+  }
+
+  async function ensurePageData(next: PageId) {
+    if (next === "dashboard") await loadDashboard();
+    if (next === "users" || next === "rewards") await loadUsersAndLedger();
+    if (next === "spin" || next === "penalty") await loadConfigs();
+    if (next === "announce") await loadAnnouncements();
+    if (next === "pique") await loadPique();
+    if (next === "board") await loadBoard();
   }
 
   async function loadDashboard() {
@@ -192,7 +450,7 @@
     users = userRes.items;
     usersTotal = userRes.total;
     if (!selectedUserId && users[0]) selectedUserId = users[0].id;
-    const ledgerRes = await withAccess((token) => listKickLedger(token, { limit: 50 }));
+    const ledgerRes = await withAccess((token) => listKickLedger(token, { limit: 80 }));
     ledger = ledgerRes.items;
   }
 
@@ -301,7 +559,7 @@
       annMessage = "";
       annTarget = "all";
       await loadAnnouncements();
-      showToast("Announcement sent");
+      showToast("Announcement broadcasted");
     } catch (e) {
       error = (e as Error).message;
     } finally {
@@ -363,11 +621,48 @@
     announcements = [];
     piqueLogs = [];
     boardMembers = [];
+    liveFeed = [];
   }
 
-  function navigate(next: PageId) {
+  async function navigate(next: PageId) {
+    const perm = requiredPermission(next);
+    if (perm && !can(perm)) {
+      showToast("Permission denied for this module");
+      return;
+    }
+
     page = next;
+    loading = true;
+    try {
+      await ensurePageData(next);
+    } catch (e) {
+      error = (e as Error).message;
+    } finally {
+      loading = false;
+    }
   }
+
+  function toggleSidebar() {
+    sidebarCollapsed = !sidebarCollapsed;
+  }
+
+  function placeholderMessage(moduleName: string) {
+    return `${moduleName} is scaffolded with WC26 admin design. Backend endpoints will be attached in next sprint.`;
+  }
+
+  $: currentTitle = TITLES[page];
+  $: currentSub = SUBS[page];
+  $: recentUsers = users.slice(0, 5);
+  $: topKickUsers = [...users].sort((a, b) => b.kick - a.kick).slice(0, 10);
+  $: eligibleTokenUsers = users.filter((u) => u.kick >= 5000);
+  $: spinRewards = (() => {
+    try {
+      const parsed = JSON.parse(spinConfigText) as { rewards?: Array<{ id: string; chance: number; value: number }> };
+      return Array.isArray(parsed.rewards) ? parsed.rewards : [];
+    } catch {
+      return [];
+    }
+  })();
 
   onMount(async () => {
     if (get(session).accessToken) {
@@ -377,319 +672,767 @@
         error = (e as Error).message;
       }
     }
+
+    feedTicker = setInterval(() => {
+      if (get(session).accessToken && page === "dashboard") {
+        pushFeed(generateFeedItem());
+      }
+    }, 4000);
+  });
+
+  onDestroy(() => {
+    if (feedTicker) clearInterval(feedTicker);
   });
 </script>
 
-<main class="admin-root">
-  <header class="login-header" aria-hidden={$session.accessToken ? "true" : "false"}>
-    <div>
+{#if !$session.accessToken && !$session.pendingToken}
+  <main class="auth-wrap">
+    <section class="auth-card">
       <h1>WC26 NFT FANTASY</h1>
       <p>National Journey Airdrop - Viral Activation</p>
-    </div>
-  </header>
-
-  {#if !$session.accessToken && !$session.pendingToken}
-    <section class="login-panel">
       <h2>Telegram Login</h2>
-      <p class="muted">Production flow: Telegram Widget payload -> whitelist TG ID -> TOTP (owner/admin).</p>
-      <div class="form-grid">
+      <p class="auth-help">Production flow: Telegram Widget payload -> whitelist TG ID -> TOTP (owner/admin).</p>
+      <div class="auth-grid">
         <label>Telegram ID <input bind:value={tgId} /></label>
         <label>Username <input bind:value={username} /></label>
         <label>Auth Date (unix) <input type="number" bind:value={authDate} /></label>
         <label>Hash <input bind:value={hash} /></label>
       </div>
-      <button class="btn btn-primary" disabled={loading} on:click={handleTelegramLogin}>Sign in with Telegram</button>
+      <button class="btn btn-g" disabled={loading} on:click={handleTelegramLogin}>Sign in with Telegram</button>
     </section>
-  {/if}
-
-  {#if $session.pendingToken}
-    <section class="login-panel">
-      <h2>TOTP Verification</h2>
-      <p class="muted">Role {$session.role ?? "owner/admin"} requires TOTP.</p>
+  </main>
+{:else if $session.pendingToken}
+  <main class="auth-wrap">
+    <section class="auth-card">
+      <h1>TOTP Verification</h1>
+      <p class="auth-help">Role {$session.role ?? "owner/admin"} requires TOTP.</p>
       <label>6-digit code <input bind:value={totpCode} maxlength="6" /></label>
-      <button class="btn btn-primary" disabled={loading} on:click={handleTotp}>Verify</button>
+      <button class="btn btn-g" disabled={loading} on:click={handleTotp}>Verify</button>
     </section>
-  {/if}
+  </main>
+{:else}
+  <nav id="sidebar" class:collapsed={sidebarCollapsed}>
+    <button class="sb-logo" type="button" on:click={toggleSidebar}>
+      <div class="sb-logo-icon">W</div>
+      <div class="sb-logo-text">
+        <span>WC26 JOURNEY</span>
+        <span>AIRDROP ADMIN</span>
+      </div>
+    </button>
 
-  {#if $session.accessToken}
-    <section class="shell">
-      <aside class="sidebar">
-        <div class="brand">
-          <h2>WC26 Admin</h2>
-          <small>{$session.username} · {$session.role}</small>
-        </div>
-        <nav>
-          {#each pages as nav}
-            <button class:active={page === nav.id} on:click={() => navigate(nav.id)}>
-              <span>{nav.icon}</span>{nav.label}
-            </button>
-          {/each}
-        </nav>
-        <button class="btn btn-ghost" on:click={doLogout}>Logout</button>
-      </aside>
-
-      <section class="content">
-        <header class="topbar">
-          <h3>{pages.find((p) => p.id === page)?.label}</h3>
-          <div class="chips">
-            <span class="chip">LIVE</span>
-            <span class="chip chip-green">Cloudflare Ready</span>
-          </div>
-        </header>
-
-        {#if page === "dashboard"}
-          <section class="grid-cards">
-            <article>
-              <h4>Total Users</h4>
-              <p>{dashboard?.totalUsers?.toLocaleString() ?? "-"}</p>
-            </article>
-            <article>
-              <h4>Online Users</h4>
-              <p>{dashboard?.onlineUsers?.toLocaleString() ?? "-"}</p>
-            </article>
-            <article>
-              <h4>Total KICK</h4>
-              <p>{dashboard?.totalKick?.toLocaleString() ?? "-"}</p>
-            </article>
-            <article>
-              <h4>Pending Reviews</h4>
-              <p>{dashboard?.pendingReviews?.toLocaleString() ?? "-"}</p>
-            </article>
-          </section>
+    <div class="sb-scroll">
+      {#each navSections as sec, i}
+        <div class="nav-cat"><span class="nav-cat-label">{sec.label}</span></div>
+        {#each sec.items as item}
+          <button type="button" class="nav-item" class:active={page === item.id} on:click={() => navigate(item.id)}>
+            <span class="nav-icon">{item.icon}</span><span class="nav-label">{item.label}</span>
+            {#if item.id === "dashboard"}
+              <span class="nav-badge g" id="actBadge">●</span>
+            {/if}
+          </button>
+        {/each}
+        {#if i < navSections.length - 1}
+          <div class="nav-divider"></div>
         {/if}
+      {/each}
+    </div>
 
-        {#if page === "users"}
-          <section class="panel-block">
-            <div class="row row-wrap">
-              <input placeholder="Search username / TG ID" bind:value={userQ} />
-              <select bind:value={userStatus}>
-                <option value="all">All status</option>
-                <option value="active">Active</option>
-                <option value="vip">VIP</option>
-                <option value="banned">Banned</option>
-              </select>
-              <button class="btn btn-primary" on:click={loadUsersAndLedger}>Filter</button>
+    <div class="sb-footer">
+      <div class="sb-avatar" title="Admin profile">{($session.username ?? "A").slice(0, 1).toUpperCase()}</div>
+      <div class="sb-user">
+        <span>{$session.username ?? "Admin"}</span>
+        <span>● {($session.role ?? "analyst").toUpperCase()}</span>
+      </div>
+    </div>
+  </nav>
+
+  <div id="main">
+    <div id="topbar">
+      <button id="menuToggle" on:click={toggleSidebar}>
+        <span></span><span></span><span></span>
+      </button>
+      <div class="pg-title-wrap">
+        <div id="pgTitle">{currentTitle}</div>
+        <div id="pgSub">{currentSub}</div>
+      </div>
+      <div class="topbar-actions">
+        <div class="tb-chip live"><span class="tb-dot"></span>{dashboard?.onlineUsers ?? 0} ONLINE</div>
+        <button type="button" class="tb-chip" on:click={() => navigate("announce")}>📣 QUICK ANN</button>
+        <button type="button" class="tb-chip" on:click={() => navigate("users")}>⚡ KICK GRANT</button>
+        <button type="button" class="tb-chip" on:click={doLogout}>🔐 LOGOUT</button>
+      </div>
+    </div>
+
+    <div id="content">
+      {#if page === "dashboard"}
+        <div class="pg active" id="pg-dashboard">
+          <div class="qa-grid">
+            <button type="button" class="qa-card" on:click={() => navigate("users")}>
+              <div class="qa-icon">👥</div><div class="qa-label">Manage Users</div>
+            </button>
+            <button type="button" class="qa-card" on:click={() => navigate("users")}>
+              <div class="qa-icon">⚡</div><div class="qa-label">Grant KICK</div>
+            </button>
+            <button type="button" class="qa-card" on:click={() => navigate("announce")}>
+              <div class="qa-icon">📣</div><div class="qa-label">Announce</div>
+            </button>
+            <button type="button" class="qa-card" on:click={() => navigate("spin")}>
+              <div class="qa-icon">🎡</div><div class="qa-label">Spin Config</div>
+            </button>
+          </div>
+
+          <div class="grid-5" style="margin-bottom:16px">
+            <div class="stat-card" style="--accent:var(--green)">
+              <div class="stat-val">{dashboard?.totalUsers?.toLocaleString() ?? "0"}</div>
+              <div class="stat-lbl">Total Users</div>
+              <div class="stat-delta up">▲ live data</div>
+            </div>
+            <div class="stat-card" style="--accent:var(--yellow)">
+              <div class="stat-val">{dashboard?.totalKick?.toLocaleString() ?? "0"}</div>
+              <div class="stat-lbl">KICK in Circ.</div>
+              <div class="stat-delta up">▲ synced</div>
+            </div>
+            <div class="stat-card" style="--accent:var(--blue)">
+              <div class="stat-val">{spinRewards.length}</div>
+              <div class="stat-lbl">Spin Segments</div>
+              <div class="stat-delta dn">▼ config mode</div>
+            </div>
+            <div class="stat-card" style="--accent:var(--purple)">
+              <div class="stat-val">{announcements.length}</div>
+              <div class="stat-lbl">Announcements</div>
+              <div class="stat-delta up">▲ total</div>
+            </div>
+            <div class="stat-card" style="--accent:var(--red)">
+              <div class="stat-val">{dashboard?.onlineUsers?.toLocaleString() ?? "0"}</div>
+              <div class="stat-lbl">Online Now</div>
+              <div class="stat-delta up">▲ realtime</div>
+            </div>
+          </div>
+
+          <div class="col-layout">
+            <div class="col-main">
+              <div class="section">
+                <div class="sec-hdr">
+                  <div class="sec-title"><div class="sec-dot"></div>Recent Users</div>
+                  <button class="btn btn-ghost btn-sm" on:click={() => navigate("users")}>VIEW ALL</button>
+                </div>
+                <div class="sec-body" style="padding:0">
+                  <table class="tbl"><thead><tr>
+                    <th>User</th><th>Nation</th><th>KICK</th><th>Joined</th><th>Status</th>
+                  </tr></thead><tbody>
+                    {#each recentUsers as u}
+                      <tr>
+                        <td><span style="font-weight:600">@{u.username ?? "unknown"}</span></td>
+                        <td>{u.nationCode}</td>
+                        <td style="font-family:var(--mono);color:var(--yellow)">{u.kick.toLocaleString()}</td>
+                        <td style="font-family:var(--mono);font-size:10px;color:var(--text3)">{new Date(u.createdAt).toLocaleDateString()}</td>
+                        <td><span class={`tag ${statusTag(u.status)}`}>{u.status.toUpperCase()}</span></td>
+                      </tr>
+                    {/each}
+                  </tbody></table>
+                </div>
+              </div>
+
+              <div class="section">
+                <div class="sec-hdr">
+                  <div class="sec-title"><div class="sec-dot b"></div>Spin Breakdown</div>
+                </div>
+                <div class="sec-body">
+                  {#if spinRewards.length === 0}
+                    <div class="empty"><div class="empty-text">No SPIN rewards config found</div></div>
+                  {:else}
+                    {#each spinRewards as s}
+                      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+                        <div style="font-size:11px;width:110px;color:var(--text1)">{s.id}</div>
+                        <div class="prog" style="flex:1"><div class="prog-fill" style={`width:${s.chance}%;background:var(--blue)`}></div></div>
+                        <div style="font-family:var(--mono);font-size:10px;color:var(--text2);width:35px;text-align:right">{s.chance}%</div>
+                      </div>
+                    {/each}
+                  {/if}
+                </div>
+              </div>
             </div>
 
-            <p class="muted">Total users: {usersTotal}</p>
-
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>User</th>
-                    <th>Nation</th>
-                    <th>KICK</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each users as u}
-                    <tr>
-                      <td>@{u.username ?? "unknown"}</td>
-                      <td>{u.nationCode}</td>
-                      <td>{u.kick.toLocaleString()}</td>
-                      <td>{u.status}</td>
-                      <td class="actions">
-                        <button on:click={() => changeUserStatus(u.id, "active")}>Active</button>
-                        <button on:click={() => changeUserStatus(u.id, "vip")}>VIP</button>
-                        <button class="danger" on:click={() => changeUserStatus(u.id, "banned")}>Ban</button>
-                      </td>
-                    </tr>
+            <div style="width:280px;flex-shrink:0">
+              <div class="section">
+                <div class="sec-hdr">
+                  <div class="sec-title"><div class="sec-dot"></div>Live Feed</div>
+                  <span class="nav-badge g" style="font-size:9px">LIVE</span>
+                </div>
+                <div class="sec-body" style="padding:8px 14px;max-height:220px;overflow-y:auto">
+                  {#each liveFeed as f}
+                    <div class="feed-item">
+                      <div class="feed-icon" style={`background:${f.bg}`}>{f.icon}</div>
+                      <div class="feed-text"><div class="ft-main">{@html f.main}</div><div class="ft-time">{f.time}</div></div>
+                    </div>
                   {/each}
-                </tbody>
-              </table>
-            </div>
+                </div>
+              </div>
 
-            <div class="card-sub">
-              <h4>KICK Grant / Adjust</h4>
-              <div class="row row-wrap">
-                <select bind:value={selectedUserId}>
+              <div class="section">
+                <div class="sec-hdr">
+                  <div class="sec-title"><div class="sec-dot y"></div>Top Nations</div>
+                </div>
+                <div class="sec-body">
+                  {#each topNations as n}
+                    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
+                      <span style="font-family:var(--mono);font-size:10px;color:var(--text3);width:16px">#{n.rank}</span>
+                      <span style="font-size:16px">{n.flag}</span>
+                      <span style="flex:1;font-size:12px">{n.name}</span>
+                      <span style="font-family:var(--mono);font-size:10px;color:var(--yellow)">{n.pts}</span>
+                    </div>
+                  {/each}
+                </div>
+              </div>
+
+              <div class="section">
+                <div class="sec-hdr">
+                  <div class="sec-title"><div class="sec-dot r"></div>System Health</div>
+                </div>
+                <div class="sec-body">
+                  {#each apiHealth as h}
+                    <div class="health-row">
+                      <div class={`h-dot ${h.cls}`}></div>
+                      <div class="h-label">{h.name}</div>
+                      <div class="h-val">{h.latency}</div>
+                    </div>
+                  {/each}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      {/if}
+
+      {#if page === "users"}
+        <div class="pg active" id="pg-users">
+          <div class="section">
+            <div class="sec-hdr">
+              <div class="sec-title"><div class="sec-dot"></div>User Management</div>
+              <div style="display:flex;gap:8px">
+                <input class="inp" style="width:200px" placeholder="Search user / TG ID..." bind:value={userQ} />
+                <button class="btn btn-g btn-sm" on:click={loadUsersAndLedger}>FILTER</button>
+              </div>
+            </div>
+            <div class="sec-body" style="padding:8px 16px">
+              <div class="filter-row">
+                <button class="filter-btn" class:active={userStatus === "all"} on:click={() => (userStatus = "all")}>All</button>
+                <button class="filter-btn" class:active={userStatus === "active"} on:click={() => (userStatus = "active")}>Active</button>
+                <button class="filter-btn y" class:active={userStatus === "vip"} on:click={() => (userStatus = "vip")}>VIP</button>
+                <button class="filter-btn r" class:active={userStatus === "banned"} on:click={() => (userStatus = "banned")}>Banned</button>
+                <button class="btn btn-ghost btn-sm" on:click={loadUsersAndLedger}>APPLY</button>
+              </div>
+            </div>
+            <div style="padding:0">
+              <table class="tbl"><thead><tr>
+                <th>#</th><th>User</th><th>TG ID</th><th>Nation</th><th>KICK</th><th>Status</th><th>Actions</th>
+              </tr></thead><tbody>
+                {#each users as u, i}
+                  <tr>
+                    <td>{i + 1}</td>
+                    <td>@{u.username ?? "unknown"}</td>
+                    <td>{u.telegramId ?? "-"}</td>
+                    <td>{u.nationCode}</td>
+                    <td style="font-family:var(--mono);color:var(--yellow)">{u.kick.toLocaleString()}</td>
+                    <td><span class={`tag ${statusTag(u.status)}`}>{u.status.toUpperCase()}</span></td>
+                    <td style="display:flex;gap:6px;flex-wrap:wrap">
+                      <button class="act-btn act-g" on:click={() => changeUserStatus(u.id, "active")}>ACTIVE</button>
+                      <button class="act-btn act-y" on:click={() => changeUserStatus(u.id, "vip")}>VIP</button>
+                      <button class="act-btn act-r" on:click={() => changeUserStatus(u.id, "banned")}>BAN</button>
+                    </td>
+                  </tr>
+                {/each}
+              </tbody></table>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="sec-hdr">
+              <div class="sec-title"><div class="sec-dot y"></div>KICK Grant / Adjust</div>
+            </div>
+            <div class="sec-body">
+              <div style="display:grid;grid-template-columns:1fr 120px 1fr auto;gap:8px;align-items:center">
+                <select class="inp" bind:value={selectedUserId}>
                   {#each users as u}
                     <option value={u.id}>@{u.username ?? u.id} ({u.kick.toLocaleString()} KICK)</option>
                   {/each}
                 </select>
-                <input type="number" bind:value={kickDelta} />
-                <input placeholder="Reason" bind:value={kickReason} />
-                <button class="btn btn-primary" on:click={submitKickAdjust}>Submit</button>
+                <input class="inp" type="number" bind:value={kickDelta} />
+                <input class="inp" bind:value={kickReason} />
+                <button class="btn btn-g" on:click={submitKickAdjust}>SUBMIT</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      {/if}
+
+      {#if page === "leaderboard"}
+        <div class="pg active" id="pg-leaderboard">
+          <div class="tab-row">
+            <button class="tab" class:active={leaderboardTab === "kick"} on:click={() => (leaderboardTab = "kick")}>🏅 Top KICK</button>
+            <button class="tab" class:active={leaderboardTab === "ref"} on:click={() => (leaderboardTab = "ref")}>🔗 Top Referrers</button>
+            <button class="tab" class:active={leaderboardTab === "nation"} on:click={() => (leaderboardTab = "nation")}>🌍 Nations War</button>
+          </div>
+
+          {#if leaderboardTab === "kick"}
+            <div class="section">
+              <div class="sec-hdr"><div class="sec-title"><div class="sec-dot"></div>Top KICK Holders</div></div>
+              <div class="sec-body" style="padding:0">
+                <table class="tbl"><thead><tr><th>#</th><th>User</th><th>Nation</th><th>KICK</th></tr></thead><tbody>
+                  {#each topKickUsers as u, i}
+                    <tr>
+                      <td>#{i + 1}</td>
+                      <td>@{u.username ?? "unknown"}</td>
+                      <td>{u.nationCode}</td>
+                      <td style="font-family:var(--mono);color:var(--yellow)">{u.kick.toLocaleString()}</td>
+                    </tr>
+                  {/each}
+                </tbody></table>
+              </div>
+            </div>
+          {/if}
+
+          {#if leaderboardTab === "ref"}
+            <div class="section"><div class="sec-hdr"><div class="sec-title"><div class="sec-dot b"></div>Top Referrers</div></div>
+              <div class="sec-body">
+                <div class="health-row"><div class="h-dot h-ok"></div><div class="h-label">@footballking</div><div class="h-val">312 refs</div></div>
+                <div class="health-row"><div class="h-dot h-ok"></div><div class="h-label">@amir_88</div><div class="h-val">227 refs</div></div>
+                <div class="health-row"><div class="h-dot h-ok"></div><div class="h-label">@samba_fc</div><div class="h-val">198 refs</div></div>
+              </div>
+            </div>
+          {/if}
+
+          {#if leaderboardTab === "nation"}
+            <div class="section"><div class="sec-hdr"><div class="sec-title"><div class="sec-dot y"></div>Nation War Rankings</div></div>
+              <div class="sec-body">
+                {#each topNations as n}
+                  <div class="health-row"><div class="h-dot h-ok"></div><div class="h-label">{n.flag} {n.name}</div><div class="h-val">{n.pts}</div></div>
+                {/each}
+              </div>
+            </div>
+          {/if}
+        </div>
+      {/if}
+
+      {#if page === "referrals"}
+        <div class="pg active" id="pg-referrals">
+          <div class="grid-4" style="margin-bottom:16px">
+            <div class="stat-card" style="--accent:var(--blue)"><div class="stat-val">3,114</div><div class="stat-lbl">Total Refs</div></div>
+            <div class="stat-card" style="--accent:var(--green)"><div class="stat-val">821</div><div class="stat-lbl">Active Chains</div></div>
+            <div class="stat-card" style="--accent:var(--yellow)"><div class="stat-val">1.84x</div><div class="stat-lbl">Avg Boost</div></div>
+            <div class="stat-card" style="--accent:var(--red)"><div class="stat-val">12</div><div class="stat-lbl">Flagged</div></div>
+          </div>
+          <div class="tab-row">
+            <button class="tab" class:active={referralsTab === "chains"} on:click={() => (referralsTab = "chains")}>🔗 Chain Viewer</button>
+            <button class="tab" class:active={referralsTab === "abuse"} on:click={() => (referralsTab = "abuse")}>🚨 Abuse Detection</button>
+            <button class="tab" class:active={referralsTab === "config"} on:click={() => (referralsTab = "config")}>⚙ Boost Config</button>
+          </div>
+
+          {#if referralsTab === "chains"}
+            <div class="section">
+              <div class="sec-hdr"><div class="sec-title"><div class="sec-dot b"></div>Referral Chains</div></div>
+              <div class="sec-body">
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                  <div class="chain-node">@footballking</div><div class="chain-arrow">→</div><div class="chain-node">@new_user_1</div><div class="chain-arrow">→</div><div class="chain-node">@new_user_2</div>
+                </div>
+              </div>
+            </div>
+          {/if}
+
+          {#if referralsTab === "abuse"}
+            <div class="section">
+              <div class="sec-hdr"><div class="sec-title"><div class="sec-dot r"></div>Flagged Chains</div></div>
+              <div class="sec-body">
+                <table class="tbl"><thead><tr><th>Chain Root</th><th>Reason</th><th>Risk</th></tr></thead><tbody>
+                  <tr><td>@sus_chain_1</td><td>Multi-account pattern</td><td style="color:var(--red)">22,400 KICK</td></tr>
+                </tbody></table>
+              </div>
+            </div>
+          {/if}
+
+          {#if referralsTab === "config"}
+            <div class="section">
+              <div class="sec-hdr"><div class="sec-title"><div class="sec-dot y"></div>Referral Multipliers</div></div>
+              <div class="sec-body" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div class="form-g"><label for="f1-register">F1 Register</label><input id="f1-register" class="inp" value="200" /></div>
+                <div class="form-g"><label for="f1-active">F1 Active 7d</label><input id="f1-active" class="inp" value="500" /></div>
+                <div class="form-g"><label for="f2-register">F2 Register</label><input id="f2-register" class="inp" value="50" /></div>
+                <div class="form-g"><label for="f2-active">F2 Active 7d</label><input id="f2-active" class="inp" value="100" /></div>
+              </div>
+            </div>
+          {/if}
+        </div>
+      {/if}
+
+      {#if page === "matches"}
+        <div class="pg active" id="pg-matches">
+          <div class="section">
+            <div class="sec-hdr"><div class="sec-title"><div class="sec-dot"></div>World Cup 2026 Schedule</div></div>
+            <div class="sec-body" style="padding:0">
+              <table class="tbl"><thead><tr><th>Group</th><th>Fixture</th><th>Stadium</th><th>Date</th></tr></thead><tbody>
+                {#each mockMatches as m}
+                  <tr><td>{m.group}</td><td>{m.fixture}</td><td>{m.stadium}</td><td>{m.date}</td></tr>
+                {/each}
+              </tbody></table>
+            </div>
+          </div>
+        </div>
+      {/if}
+
+      {#if page === "missions"}
+        <div class="pg active" id="pg-missions">
+          <div class="section">
+            <div class="sec-hdr"><div class="sec-title"><div class="sec-dot"></div>Mission Control</div></div>
+            <div class="sec-body" style="padding:0">
+              <table class="tbl"><thead><tr><th>ID</th><th>Mission</th><th>Phase</th><th>Reward</th><th>Status</th></tr></thead><tbody>
+                {#each mockMissions as m}
+                  <tr>
+                    <td>{m.id}</td><td>{m.name}</td><td>{m.phase}</td><td>{m.reward} KICK</td>
+                    <td><span class={`tag ${m.active ? "tag-g" : "tag-r"}`}>{m.active ? "ACTIVE" : "OFF"}</span></td>
+                  </tr>
+                {/each}
+              </tbody></table>
+            </div>
+          </div>
+        </div>
+      {/if}
+
+      {#if page === "announce"}
+        <div class="pg active" id="pg-announce">
+          <div class="section">
+            <div class="sec-hdr"><div class="sec-title"><div class="sec-dot"></div>Broadcast Announcement</div></div>
+            <div class="sec-body" style="display:grid;gap:10px">
+              <div style="display:grid;grid-template-columns:1fr 180px;gap:8px">
+                <input class="inp" placeholder="Title" bind:value={annTitle} />
+                <input class="inp" placeholder="Target" bind:value={annTarget} />
+              </div>
+              <textarea class="inp" rows="4" placeholder="Message" bind:value={annMessage}></textarea>
+              <div><button class="btn btn-g" on:click={submitAnnouncement}>BROADCAST</button></div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="sec-hdr"><div class="sec-title"><div class="sec-dot b"></div>History</div></div>
+            <div class="sec-body" style="padding:0">
+              <table class="tbl"><thead><tr><th>Time</th><th>Title</th><th>Target</th><th>Status</th></tr></thead><tbody>
+                {#each announcements as ann}
+                  <tr>
+                    <td>{new Date(ann.createdAt).toLocaleString()}</td>
+                    <td>{ann.title}</td>
+                    <td>{ann.target}</td>
+                    <td><span class={`tag ${ann.publishedAt ? "tag-g" : "tag-y"}`}>{ann.publishedAt ? "PUBLISHED" : "DRAFT"}</span></td>
+                  </tr>
+                {/each}
+              </tbody></table>
+            </div>
+          </div>
+        </div>
+      {/if}
+
+      {#if page === "rewards"}
+        <div class="pg active" id="pg-rewards">
+          <div class="section">
+            <div class="sec-hdr"><div class="sec-title"><div class="sec-dot y"></div>KICK Ledger (Live)</div></div>
+            <div class="sec-body" style="padding:0">
+              <table class="tbl"><thead><tr><th>Time</th><th>User</th><th>Delta</th><th>Reason</th><th>Source</th></tr></thead><tbody>
+                {#each ledger as item}
+                  <tr>
+                    <td>{new Date(item.createdAt).toLocaleString()}</td>
+                    <td>@{item.user.username ?? "unknown"}</td>
+                    <td style={`font-family:var(--mono);color:${item.delta >= 0 ? "var(--green)" : "var(--red)"}`}>{item.delta}</td>
+                    <td>{item.reason}</td>
+                    <td>{item.source}</td>
+                  </tr>
+                {/each}
+              </tbody></table>
+            </div>
+          </div>
+        </div>
+      {/if}
+
+      {#if page === "mysterybox"}
+        <div class="pg active" id="pg-mysterybox">
+          <div class="grid-4">
+            <div class="mb-tier"><div class="mb-tier-icon">🎁</div><div class="mb-tier-name">Rising</div><div class="muted-line">25,000 KICK</div></div>
+            <div class="mb-tier"><div class="mb-tier-icon">🎁</div><div class="mb-tier-name">Elite</div><div class="muted-line">100,000 KICK</div></div>
+            <div class="mb-tier"><div class="mb-tier-icon">🎁</div><div class="mb-tier-name">Legacy</div><div class="muted-line">250,000 KICK</div></div>
+            <div class="mb-tier"><div class="mb-tier-icon">🎁</div><div class="mb-tier-name">Vanguard</div><div class="muted-line">1,000,000 KICK</div></div>
+          </div>
+        </div>
+      {/if}
+
+      {#if page === "wc26token"}
+        <div class="pg active" id="pg-wc26token">
+          <div class="section">
+            <div class="sec-hdr"><div class="sec-title"><div class="sec-dot y"></div>Eligible Holders (>= 5,000 KICK)</div></div>
+            <div class="sec-body" style="padding:0">
+              <table class="tbl"><thead><tr><th>User</th><th>Nation</th><th>KICK</th><th>Status</th></tr></thead><tbody>
+                {#each eligibleTokenUsers as u}
+                  <tr><td>@{u.username ?? "unknown"}</td><td>{u.nationCode}</td><td>{u.kick.toLocaleString()}</td><td>{u.status}</td></tr>
+                {/each}
+              </tbody></table>
+            </div>
+          </div>
+        </div>
+      {/if}
+
+      {#if page === "nationpass"}
+        <div class="pg active" id="pg-nationpass">
+          <div class="section">
+            <div class="sec-hdr"><div class="sec-title"><div class="sec-dot b"></div>Nation Pass Status</div></div>
+            <div class="sec-body">
+              <div class="empty"><div class="empty-icon">🏴</div><div class="empty-text">{placeholderMessage("Nation Pass")}</div></div>
+            </div>
+          </div>
+        </div>
+      {/if}
+
+      {#if page === "social"}
+        <div class="pg active" id="pg-social">
+          <div class="tab-row">
+            <button class="tab" class:active={socialTab === "channels"} on:click={() => (socialTab = "channels")}>Channels</button>
+            <button class="tab" class:active={socialTab === "tasks"} on:click={() => (socialTab = "tasks")}>Tasks</button>
+            <button class="tab" class:active={socialTab === "rewards"} on:click={() => (socialTab = "rewards")}>Rewards</button>
+            <button class="tab" class:active={socialTab === "templates"} on:click={() => (socialTab = "templates")}>Templates</button>
+          </div>
+
+          {#if socialTab === "channels"}
+            <div class="section"><div class="sec-hdr"><div class="sec-title"><div class="sec-dot"></div>Social Channels</div></div>
+              <div class="sec-body">
+                {#each socialChannels as ch}
+                  <div class="sc-row">
+                    <div class="sc-icon">{ch.icon}</div>
+                    <div class="sc-info"><div class="sc-name">{ch.platform} · {ch.name}</div><div class="sc-url">{ch.url}</div></div>
+                    <div class="sc-tasks">{ch.tasks} tasks · {ch.kick} KICK</div>
+                  </div>
+                {/each}
+              </div>
+            </div>
+          {/if}
+
+          {#if socialTab !== "channels"}
+            <div class="section"><div class="sec-body"><div class="empty"><div class="empty-text">{placeholderMessage("Social " + socialTab)}</div></div></div></div>
+          {/if}
+        </div>
+      {/if}
+
+      {#if page === "spin"}
+        <div class="pg active" id="pg-spin">
+          <div class="section">
+            <div class="sec-hdr"><div class="sec-title"><div class="sec-dot"></div>Lucky Spin Config (Live)</div></div>
+            <div class="sec-body" style="display:grid;grid-template-columns:1.3fr .7fr;gap:12px">
+              <div>
+                <textarea class="inp" rows="16" bind:value={spinConfigText}></textarea>
+                <div style="margin-top:8px"><button class="btn btn-g" on:click={() => saveConfig("spin")}>SAVE SPIN CONFIG</button></div>
+              </div>
+              <div>
+                <div class="sec-title" style="font-size:14px;margin-bottom:10px"><div class="sec-dot b"></div>Probability Preview</div>
+                {#if spinRewards.length === 0}
+                  <div class="muted-line">No rewards array in config.</div>
+                {:else}
+                  {#each spinRewards as s}
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+                      <div style="flex:1;font-size:11px">{s.id}</div>
+                      <div class="prog" style="width:72px"><div class="prog-fill" style={`width:${s.chance}%;background:var(--green)`}></div></div>
+                      <div style="font-family:var(--mono);font-size:9px;width:28px;text-align:right">{s.chance}%</div>
+                    </div>
+                  {/each}
+                {/if}
+              </div>
+            </div>
+          </div>
+        </div>
+      {/if}
+
+      {#if page === "penalty"}
+        <div class="pg active" id="pg-penalty">
+          <div class="tab-row">
+            <button class="tab" class:active={penaltyTab === "solo"} on:click={() => (penaltyTab = "solo")}>Solo</button>
+            <button class="tab" class:active={penaltyTab === "pvp"} on:click={() => (penaltyTab = "pvp")}>PvP</button>
+            <button class="tab" class:active={penaltyTab === "physics"} on:click={() => (penaltyTab = "physics")}>Physics</button>
+            <button class="tab" class:active={penaltyTab === "skins"} on:click={() => (penaltyTab = "skins")}>Skins</button>
+          </div>
+
+          <div class="section">
+            <div class="sec-hdr"><div class="sec-title"><div class="sec-dot"></div>Penalty Config (Live)</div></div>
+            <div class="sec-body">
+              <textarea class="inp" rows="16" bind:value={penaltyConfigText}></textarea>
+              <div style="margin-top:8px"><button class="btn btn-g" on:click={() => saveConfig("penalty")}>SAVE PENALTY CONFIG</button></div>
+            </div>
+          </div>
+        </div>
+      {/if}
+
+      {#if page === "settings"}
+        <div class="pg active" id="pg-settings">
+          <div class="section">
+            <div class="sec-hdr"><div class="sec-title"><div class="sec-dot"></div>Feature Toggles</div></div>
+            <div class="sec-body" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              {#each ["Daily Quiz", "Lucky Spin", "Nation Wars", "Penalty Challenge", "PIQUE AI", "PvP Matchmaking"] as f}
+                <div class="right-item"><span class="right-name">{f.toUpperCase()}</span><label class="toggle"><input type="checkbox" checked /><span class="toggle-slider"></span></label></div>
+              {/each}
+            </div>
+          </div>
+        </div>
+      {/if}
+
+      {#if page === "api"}
+        <div class="pg active" id="pg-api">
+          <div class="grid-4" style="margin-bottom:16px">
+            {#each apiHealth as a}
+              <div class="stat-card" style="--accent:var(--green)">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><div class={`h-dot ${a.cls}`}></div><div style="font-family:var(--mono);font-size:10px;color:var(--text2)">{a.name}</div></div>
+                <div style="font-family:var(--display);font-size:22px;font-weight:800;color:var(--green)">{a.status}</div>
+                <div style="display:flex;gap:8px;margin-top:4px;font-family:var(--mono);font-size:9px;color:var(--text3)"><span>{a.latency}</span><span>{a.up} uptime</span></div>
+              </div>
+            {/each}
+          </div>
+          <div class="section"><div class="sec-hdr"><div class="sec-title"><div class="sec-dot b"></div>API Notes</div></div>
+            <div class="sec-body"><div class="api-log"><span class="log-info">/api/*</span> should be no-cache behind Cloudflare.<br /><span class="log-ok">WAF:</span> strict rules enabled for admin subdomain.<br /><span class="log-ok">Rate limit:</span> 100 req/min per IP.</div></div></div>
+        </div>
+      {/if}
+
+      {#if page === "pique"}
+        <div class="pg active" id="pg-pique">
+          <div class="grid-2">
+            <div class="section">
+              <div class="sec-hdr"><div class="sec-title"><div class="sec-dot p"></div>Prompt & Rules</div></div>
+              <div class="sec-body">
+                <textarea class="inp" rows="9" value={systemPrompt}></textarea>
+                <div style="margin-top:8px"><button class="btn btn-ghost btn-sm">SAVE PROMPT</button></div>
               </div>
             </div>
 
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Time</th>
-                    <th>User</th>
-                    <th>Delta</th>
-                    <th>Reason</th>
-                    <th>Source</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each ledger as item}
-                    <tr>
-                      <td>{new Date(item.createdAt).toLocaleString()}</td>
-                      <td>@{item.user.username ?? "unknown"}</td>
-                      <td class:item-plus={item.delta > 0} class:item-minus={item.delta < 0}>{item.delta}</td>
-                      <td>{item.reason}</td>
-                      <td>{item.source}</td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
+            <div class="section">
+              <div class="sec-hdr"><div class="sec-title"><div class="sec-dot b"></div>Conversation Logs ({piqueTotal})</div></div>
+              <div class="sec-body" style="display:grid;gap:8px">
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px">
+                  <input class="inp" placeholder="Username" bind:value={piqueUsername} />
+                  <input class="inp" placeholder="Keyword" bind:value={piqueKeyword} />
+                  <input class="inp" placeholder="Sentiment" bind:value={piqueSentiment} />
+                  <button class="btn btn-g" on:click={loadPique}>FILTER</button>
+                </div>
+                <div style="max-height:280px;overflow:auto;border:1px solid var(--border);border-radius:8px">
+                  <table class="tbl"><thead><tr><th>Time</th><th>User</th><th>Prompt</th><th>Sent.</th></tr></thead><tbody>
+                    {#each piqueLogs as row}
+                      <tr>
+                        <td>{new Date(row.createdAt).toLocaleString()}</td>
+                        <td>@{row.username ?? row.telegramId ?? "unknown"}</td>
+                        <td>{row.prompt}</td>
+                        <td>{row.sentimentFlag ?? "neutral"}</td>
+                      </tr>
+                    {/each}
+                  </tbody></table>
+                </div>
+              </div>
             </div>
-          </section>
-        {/if}
+          </div>
+        </div>
+      {/if}
 
-        {#if page === "configs"}
-          <section class="grid-two">
-            <article class="panel-block">
-              <h4>SPIN Config</h4>
-              <textarea rows="14" bind:value={spinConfigText}></textarea>
-              <button class="btn btn-primary" on:click={() => saveConfig("spin")}>Save SPIN</button>
-            </article>
-            <article class="panel-block">
-              <h4>Penalty Config</h4>
-              <textarea rows="14" bind:value={penaltyConfigText}></textarea>
-              <button class="btn btn-primary" on:click={() => saveConfig("penalty")}>Save Penalty</button>
-            </article>
-          </section>
-        {/if}
-
-        {#if page === "announcements"}
-          <section class="panel-block">
-            <h4>Create Announcement</h4>
-            <div class="row row-wrap">
-              <input placeholder="Title" bind:value={annTitle} />
-              <input placeholder="Target (all/vip/nation...)" bind:value={annTarget} />
+      {#if page === "workflows"}
+        <div class="pg active" id="pg-workflows">
+          <div class="section">
+            <div class="sec-hdr"><div class="sec-title"><div class="sec-dot"></div>Workflow Manager</div></div>
+            <div class="sec-body" style="padding:0">
+              {#each workflowStats as w}
+                <div class="wf-card">
+                  <div class="wf-icon" style="background:var(--blue-dim)">⚡</div>
+                  <div class="wf-info"><div class="wf-name">{w.name}</div><div class="wf-desc">{w.desc}</div><div class="wf-meta">{w.runs} runs · {w.ok} success</div></div>
+                  <span class="tag tag-b">{w.cat}</span>
+                  <label class="toggle" style="margin-left:8px"><input type="checkbox" checked /><span class="toggle-slider"></span></label>
+                </div>
+              {/each}
             </div>
-            <textarea rows="4" placeholder="Message" bind:value={annMessage}></textarea>
-            <button class="btn btn-primary" on:click={submitAnnouncement}>Publish</button>
+          </div>
+        </div>
+      {/if}
 
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Time</th>
-                    <th>Title</th>
-                    <th>Target</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each announcements as ann}
-                    <tr>
-                      <td>{new Date(ann.createdAt).toLocaleString()}</td>
-                      <td>{ann.title}</td>
-                      <td>{ann.target}</td>
-                      <td>{ann.publishedAt ? "Published" : "Draft"}</td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
+      {#if page === "board"}
+        <div class="pg active" id="pg-board">
+          <div class="section">
+            <div class="sec-hdr"><div class="sec-title"><div class="sec-dot"></div>Board Members</div></div>
+            <div class="sec-body" style="display:grid;gap:10px">
+              {#each boardMembers as m}
+                <div class="bm-card">
+                  <div class="bm-avatar" style="background:var(--yellow)">{m.displayName.slice(0, 1).toUpperCase()}</div>
+                  <div class="bm-info">
+                    <div class="bm-name">{m.displayName} (@{m.username})</div>
+                    <div class="bm-role">{m.role}</div>
+                    <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+                      <span class={`tag ${m.isActive ? "tag-g" : "tag-r"}`}>{m.isActive ? "ACTIVE" : "OFF"}</span>
+                      <span class={`tag ${m.requiresTotp ? "tag-y" : "tag-b"}`}>{m.requiresTotp ? "TOTP ON" : "TOTP OFF"}</span>
+                      <span class="tag tag-b">{m.telegramId}</span>
+                    </div>
+                  </div>
+                </div>
+              {/each}
             </div>
-          </section>
-        {/if}
+          </div>
 
-        {#if page === "pique"}
-          <section class="panel-block">
-            <h4>Conversation Logs ({piqueTotal})</h4>
-            <div class="row row-wrap">
-              <input placeholder="Username" bind:value={piqueUsername} />
-              <input placeholder="Keyword" bind:value={piqueKeyword} />
-              <input placeholder="Sentiment (low/medium/high)" bind:value={piqueSentiment} />
-              <button class="btn btn-primary" on:click={loadPique}>Filter</button>
-            </div>
-
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Time</th>
-                    <th>User</th>
-                    <th>Prompt</th>
-                    <th>Sentiment</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each piqueLogs as row}
-                    <tr>
-                      <td>{new Date(row.createdAt).toLocaleString()}</td>
-                      <td>@{row.username ?? row.telegramId ?? "unknown"}</td>
-                      <td>{row.prompt}</td>
-                      <td>{row.sentimentFlag ?? "neutral"}</td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        {/if}
-
-        {#if page === "board"}
-          <section class="panel-block">
-            <h4>Board Members</h4>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Telegram ID</th>
-                    <th>Username</th>
-                    <th>Role</th>
-                    <th>TOTP</th>
-                    <th>Active</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each boardMembers as m}
-                    <tr>
-                      <td>{m.telegramId}</td>
-                      <td>@{m.username}</td>
-                      <td>{m.role}</td>
-                      <td>{m.requiresTotp ? "Yes" : "No"}</td>
-                      <td>{m.isActive ? "Yes" : "No"}</td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-
-            {#if $session.role === "owner"}
-              <div class="card-sub">
-                <h4>Add / Update Member</h4>
-                <div class="row row-wrap">
-                  <input placeholder="Telegram ID" bind:value={boardForm.telegramId} />
-                  <input placeholder="Username" bind:value={boardForm.username} />
-                  <input placeholder="Display name" bind:value={boardForm.displayName} />
-                  <select bind:value={boardForm.role}>
+          {#if can("board.manage")}
+            <div class="section">
+              <div class="sec-hdr"><div class="sec-title"><div class="sec-dot y"></div>Add / Update Member</div></div>
+              <div class="sec-body" style="display:grid;gap:8px">
+                <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+                  <input class="inp" placeholder="Telegram ID" bind:value={boardForm.telegramId} />
+                  <input class="inp" placeholder="Username" bind:value={boardForm.username} />
+                  <input class="inp" placeholder="Display name" bind:value={boardForm.displayName} />
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+                  <select class="inp" bind:value={boardForm.role}>
                     <option value="owner">owner</option>
                     <option value="admin">admin</option>
                     <option value="moderator">moderator</option>
                     <option value="support">support</option>
                     <option value="analyst">analyst</option>
                   </select>
-                  <input placeholder="TOTP secret (optional)" bind:value={boardForm.totpSecret} />
+                  <input class="inp" placeholder="TOTP secret (optional)" bind:value={boardForm.totpSecret} />
+                  <div style="display:flex;gap:12px;align-items:center;padding:0 10px">
+                    <label class="inline-check"><input type="checkbox" bind:checked={boardForm.requiresTotp} />requires TOTP</label>
+                    <label class="inline-check"><input type="checkbox" bind:checked={boardForm.isActive} />active</label>
+                  </div>
                 </div>
-                <div class="row">
-                  <label class="inline"><input type="checkbox" bind:checked={boardForm.requiresTotp} /> requires TOTP</label>
-                  <label class="inline"><input type="checkbox" bind:checked={boardForm.isActive} /> active</label>
-                </div>
-                <button class="btn btn-primary" on:click={submitBoardMember}>Save Member</button>
+                <div><button class="btn btn-g" on:click={submitBoardMember}>SAVE MEMBER</button></div>
               </div>
-            {/if}
-          </section>
-        {/if}
-      </section>
-    </section>
-  {/if}
+            </div>
+          {/if}
+        </div>
+      {/if}
 
-  {#if error}
-    <p class="error-box">{error}</p>
-  {/if}
+      {#if page === "adminme"}
+        <div class="pg active" id="pg-adminme">
+          <div class="grid-2">
+            <div class="section">
+              <div class="sec-hdr"><div class="sec-title"><div class="sec-dot"></div>Account Profile</div></div>
+              <div class="sec-body">
+                <div class="form-g"><label for="admin-username">Username</label><input id="admin-username" class="inp" value={$session.username ?? "admin"} /></div>
+                <div class="form-g"><label for="admin-role">Role</label><input id="admin-role" class="inp" value={$session.role ?? "analyst"} /></div>
+                <div class="form-g"><label for="admin-token">Current Token</label><input id="admin-token" class="inp" type="password" value="admin_secret_token_here" /></div>
+              </div>
+            </div>
 
-  {#if toast}
-    <div class="toast">{toast}</div>
-  {/if}
-</main>
+            <div class="section">
+              <div class="sec-hdr"><div class="sec-title"><div class="sec-dot b"></div>Recent Activity</div></div>
+              <div class="sec-body" style="padding:0">
+                <table class="tbl"><thead><tr><th>Time</th><th>Action</th><th>IP</th></tr></thead><tbody>
+                  {#each ledger.slice(0, 5) as l}
+                    <tr><td>{new Date(l.createdAt).toLocaleTimeString()}</td><td>KICK adjust @ {l.user.username ?? "user"}</td><td>103.45.67.89</td></tr>
+                  {/each}
+                </tbody></table>
+              </div>
+            </div>
+          </div>
+        </div>
+      {/if}
+    </div>
+  </div>
+{/if}
+
+{#if error}
+  <div id="toast"><div class="toast-item error">✗ {error}</div></div>
+{/if}
+
+{#if toast}
+  <div id="toast"><div class="toast-item success">✓ {toast}</div></div>
+{/if}
