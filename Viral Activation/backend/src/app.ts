@@ -15,6 +15,8 @@ import { configRoutes } from "./modules/config/routes.js";
 import { announcementRoutes } from "./modules/announcements/routes.js";
 import { boardRoutes } from "./modules/board/routes.js";
 import { piqueRoutes } from "./modules/pique/routes.js";
+import { reportsRoutes } from "./modules/reports/routes.js";
+import { realtimeRoutes } from "./modules/realtime/routes.js";
 
 export async function createApp() {
   const config = loadConfig();
@@ -42,6 +44,8 @@ export async function createApp() {
   await app.register(announcementRoutes);
   await app.register(boardRoutes);
   await app.register(piqueRoutes);
+  await app.register(reportsRoutes);
+  await app.register(realtimeRoutes);
 
   app.get("/api/v1/ws/feed", { websocket: true }, (connection) => {
     const timer = setInterval(() => {

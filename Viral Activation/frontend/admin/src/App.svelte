@@ -3,9 +3,13 @@
   import { onDestroy, onMount } from "svelte";
   import {
     adjustKick,
+    buildKickLedgerExportUrl,
     createAnnouncement,
     getConfig,
     getDashboard,
+    getSystemHealth,
+    getSystemQueue,
+    listAuditLogs,
     listAnnouncements,
     listBoardMembers,
     listKickLedger,
@@ -13,17 +17,22 @@
     listUsers,
     loginWithTelegram,
     logoutSession,
+    openSseStream,
     refreshSession,
     updateConfig,
     updateUserStatus,
     upsertBoardMember,
     verifyTotp,
     type AdminRole,
+    type AuditLogItem,
     type Announcement,
     type AppUser,
     type BoardMember,
+    type FeedSnapshotPayload,
     type KickLedgerItem,
     type PiqueConversation,
+    type SystemHealthSnapshot,
+    type SystemQueueSnapshot,
     type UserStatus
   } from "./lib/api/client";
   import { clearSession, session, setActive, setPending } from "./lib/stores/session";
@@ -270,6 +279,13 @@
 
   let liveFeed: Array<{ icon: string; main: string; time: string; bg: string }> = [];
   let feedTicker: ReturnType<typeof setInterval> | null = null;
+  let feedStream: EventSource | null = null;
+  let healthStream: EventSource | null = null;
+  let queueStream: EventSource | null = null;
+  let systemHealth: SystemHealthSnapshot | null = null;
+  let queueSnapshot: SystemQueueSnapshot | null = null;
+  let auditLogs: AuditLogItem[] = [];
+  let auditTotal = 0;
 
   const topNations = [
     { flag: "🇧🇷", name: "Brazil", pts: "2.4M", rank: 1 },
@@ -277,13 +293,6 @@
     { flag: "🇫🇷", name: "France", pts: "1.9M", rank: 3 },
     { flag: "🇩🇪", name: "Germany", pts: "1.7M", rank: 4 },
     { flag: "🇻🇳", name: "Vietnam", pts: "1.2M", rank: 5 }
-  ];
-
-  const apiHealth = [
-    { name: "API Server", status: "OK", latency: "42ms", up: "99.9%", cls: "h-ok" },
-    { name: "Database", status: "OK", latency: "8ms", up: "99.7%", cls: "h-ok" },
-    { name: "Telegram Bot", status: "OK", latency: "-", up: "100%", cls: "h-ok" },
-    { name: "OpenClaw AI", status: "OK", latency: "340ms", up: "99.2%", cls: "h-ok" }
   ];
 
   const mockMatches = [
@@ -341,6 +350,113 @@
     ];
     const picked = options[Math.floor(Math.random() * options.length)];
     return { ...picked, time: "just now" };
+  }
+
+  function relativeTime(iso: string): string {
+    const diffSec = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+    if (diffSec < 60) return "just now";
+    if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+    return `${Math.floor(diffSec / 86400)}d ago`;
+  }
+
+  function feedItemFromAudit(activity: FeedSnapshotPayload["activities"][number]) {
+    const iconMap: Record<string, string> = {
+      auth: "🔐",
+      users: "👤",
+      economy: "💰",
+      config: "⚙️",
+      announcements: "📣",
+      board: "🛡️",
+      compliance: "🧪"
+    };
+    const bgMap: Record<string, string> = {
+      auth: "var(--purple-dim)",
+      users: "var(--green-dim)",
+      economy: "var(--yellow-dim)",
+      config: "var(--bg4)",
+      announcements: "var(--blue-dim)",
+      board: "var(--bg4)",
+      compliance: "var(--red-dim)"
+    };
+    const icon = iconMap[activity.module] ?? "📍";
+    const bg = bgMap[activity.module] ?? "var(--bg4)";
+    return {
+      icon,
+      bg,
+      main: `<b>@${activity.actor}</b> ${activity.action.replaceAll(".", " · ")}`,
+      time: relativeTime(activity.at)
+    };
+  }
+
+  function closeRealtimeStreams() {
+    if (feedStream) {
+      feedStream.close();
+      feedStream = null;
+    }
+    if (healthStream) {
+      healthStream.close();
+      healthStream = null;
+    }
+    if (queueStream) {
+      queueStream.close();
+      queueStream = null;
+    }
+  }
+
+  function startRealtimeStreams() {
+    const accessToken = get(session).accessToken;
+    if (!accessToken) return;
+    closeRealtimeStreams();
+
+    feedStream = openSseStream("/api/v1/realtime/feed", accessToken);
+    feedStream.onerror = () => {
+      if (feedStream) {
+        feedStream.close();
+        feedStream = null;
+      }
+    };
+    feedStream.addEventListener("feed.snapshot", (event) => {
+      try {
+        const data = JSON.parse((event as MessageEvent<string>).data) as FeedSnapshotPayload;
+        dashboard = data.metrics;
+        if (data.activities.length > 0) {
+          pushFeed(feedItemFromAudit(data.activities[0]));
+        }
+      } catch {
+        // ignore broken frame
+      }
+    });
+
+    healthStream = openSseStream("/api/v1/realtime/health", accessToken);
+    healthStream.onerror = () => {
+      if (healthStream) {
+        healthStream.close();
+        healthStream = null;
+      }
+    };
+    healthStream.addEventListener("health.snapshot", (event) => {
+      try {
+        systemHealth = JSON.parse((event as MessageEvent<string>).data) as SystemHealthSnapshot;
+      } catch {
+        // ignore broken frame
+      }
+    });
+
+    queueStream = openSseStream("/api/v1/realtime/queue", accessToken);
+    queueStream.onerror = () => {
+      if (queueStream) {
+        queueStream.close();
+        queueStream = null;
+      }
+    };
+    queueStream.addEventListener("queue.snapshot", (event) => {
+      try {
+        queueSnapshot = JSON.parse((event as MessageEvent<string>).data) as SystemQueueSnapshot;
+      } catch {
+        // ignore broken frame
+      }
+    });
   }
 
   async function withAccess<T>(run: (token: string) => Promise<T>): Promise<T> {
@@ -413,7 +529,16 @@
   }
 
   async function bootstrap() {
-    await Promise.all([loadDashboard(), loadUsersAndLedger(), loadConfigs(), loadAnnouncements(), loadPique(), loadBoard()]);
+    await Promise.all([
+      loadDashboard(),
+      loadUsersAndLedger(),
+      loadConfigs(),
+      loadAnnouncements(),
+      loadPique(),
+      loadBoard(),
+      loadOperationalData(),
+      loadAuditLogs()
+    ]);
     liveFeed = [
       {
         icon: "🎡",
@@ -424,11 +549,14 @@
       { icon: "👤", bg: "var(--green-dim)", main: "<b>@new_player_42</b> joined WC26 Journey", time: "1m ago" },
       { icon: "✅", bg: "var(--blue-dim)", main: "<b>@amir_88</b> completed Twitter task", time: "2m ago" }
     ];
+    startRealtimeStreams();
   }
 
   async function ensurePageData(next: PageId) {
     if (next === "dashboard") await loadDashboard();
     if (next === "users" || next === "rewards") await loadUsersAndLedger();
+    if (next === "dashboard" || next === "rewards" || next === "api") await loadOperationalData();
+    if (next === "rewards") await loadAuditLogs();
     if (next === "spin" || next === "penalty") await loadConfigs();
     if (next === "announce") await loadAnnouncements();
     if (next === "pique") await loadPique();
@@ -437,6 +565,21 @@
 
   async function loadDashboard() {
     dashboard = await withAccess((token) => getDashboard(token));
+  }
+
+  async function loadOperationalData() {
+    const [health, queue] = await Promise.all([
+      withAccess((token) => getSystemHealth(token)),
+      withAccess((token) => getSystemQueue(token))
+    ]);
+    systemHealth = health;
+    queueSnapshot = queue;
+  }
+
+  async function loadAuditLogs() {
+    const logs = await withAccess((token) => listAuditLogs(token, { limit: 60 }));
+    auditLogs = logs.items;
+    auditTotal = logs.total;
   }
 
   async function loadUsersAndLedger() {
@@ -604,6 +747,16 @@
     }
   }
 
+  function downloadLedgerCsv() {
+    const accessToken = get(session).accessToken;
+    if (!accessToken) {
+      error = "Session expired";
+      return;
+    }
+    const url = buildKickLedgerExportUrl(accessToken, { limit: 5000 });
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
   async function doLogout() {
     const refreshToken = get(session).refreshToken;
     if (refreshToken) {
@@ -614,10 +767,14 @@
       }
     }
     clearSession();
+    closeRealtimeStreams();
     page = "dashboard";
     dashboard = null;
+    systemHealth = null;
+    queueSnapshot = null;
     users = [];
     ledger = [];
+    auditLogs = [];
     announcements = [];
     piqueLogs = [];
     boardMembers = [];
@@ -635,6 +792,9 @@
     loading = true;
     try {
       await ensurePageData(next);
+      if (next === "dashboard" && !feedStream) {
+        startRealtimeStreams();
+      }
     } catch (e) {
       error = (e as Error).message;
     } finally {
@@ -674,7 +834,7 @@
     }
 
     feedTicker = setInterval(() => {
-      if (get(session).accessToken && page === "dashboard") {
+      if (get(session).accessToken && page === "dashboard" && !feedStream) {
         pushFeed(generateFeedItem());
       }
     }, 4000);
@@ -682,6 +842,7 @@
 
   onDestroy(() => {
     if (feedTicker) clearInterval(feedTicker);
+    closeRealtimeStreams();
   });
 </script>
 
@@ -890,13 +1051,36 @@
                   <div class="sec-title"><div class="sec-dot r"></div>System Health</div>
                 </div>
                 <div class="sec-body">
-                  {#each apiHealth as h}
-                    <div class="health-row">
-                      <div class={`h-dot ${h.cls}`}></div>
-                      <div class="h-label">{h.name}</div>
-                      <div class="h-val">{h.latency}</div>
-                    </div>
-                  {/each}
+                  <div class="health-row">
+                    <div class={`h-dot ${systemHealth?.services.api.status === "ok" ? "h-ok" : "h-err"}`}></div>
+                    <div class="h-label">API</div>
+                    <div class="h-val">{systemHealth?.services.api.status?.toUpperCase() ?? "-"}</div>
+                  </div>
+                  <div class="health-row">
+                    <div class={`h-dot ${systemHealth?.services.database.status === "ok" ? "h-ok" : "h-err"}`}></div>
+                    <div class="h-label">Database</div>
+                    <div class="h-val">{systemHealth ? `${systemHealth.services.database.latencyMs}ms` : "-"}</div>
+                  </div>
+                  <div class="health-row">
+                    <div class={`h-dot ${systemHealth?.services.sessionStore.status === "ok" ? "h-ok" : "h-err"}`}></div>
+                    <div class="h-label">Session Store ({systemHealth?.services.sessionStore.mode ?? "-"})</div>
+                    <div class="h-val">{systemHealth ? `${systemHealth.services.sessionStore.latencyMs}ms` : "-"}</div>
+                  </div>
+                  <div class="health-row">
+                    <div class={`h-dot ${(queueSnapshot?.pendingCompliance ?? 0) > 0 ? "h-warn" : "h-ok"}`}></div>
+                    <div class="h-label">Compliance Queue</div>
+                    <div class="h-val">{queueSnapshot?.pendingCompliance ?? 0}</div>
+                  </div>
+                  <div class="health-row">
+                    <div class={`h-dot ${(queueSnapshot?.highRiskPique ?? 0) > 0 ? "h-warn" : "h-ok"}`}></div>
+                    <div class="h-label">PIQUE High Risk</div>
+                    <div class="h-val">{queueSnapshot?.highRiskPique ?? 0}</div>
+                  </div>
+                  <div class="health-row">
+                    <div class={`h-dot ${(queueSnapshot?.pendingAnnouncements ?? 0) > 0 ? "h-warn" : "h-ok"}`}></div>
+                    <div class="h-label">Draft Announcements</div>
+                    <div class="h-val">{queueSnapshot?.pendingAnnouncements ?? 0}</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1132,7 +1316,10 @@
       {#if page === "rewards"}
         <div class="pg active" id="pg-rewards">
           <div class="section">
-            <div class="sec-hdr"><div class="sec-title"><div class="sec-dot y"></div>KICK Ledger (Live)</div></div>
+            <div class="sec-hdr">
+              <div class="sec-title"><div class="sec-dot y"></div>KICK Ledger (Live)</div>
+              <button class="btn btn-ghost btn-sm" on:click={downloadLedgerCsv}>EXPORT CSV</button>
+            </div>
             <div class="sec-body" style="padding:0">
               <table class="tbl"><thead><tr><th>Time</th><th>User</th><th>Delta</th><th>Reason</th><th>Source</th></tr></thead><tbody>
                 {#each ledger as item}
@@ -1142,6 +1329,26 @@
                     <td style={`font-family:var(--mono);color:${item.delta >= 0 ? "var(--green)" : "var(--red)"}`}>{item.delta}</td>
                     <td>{item.reason}</td>
                     <td>{item.source}</td>
+                  </tr>
+                {/each}
+              </tbody></table>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="sec-hdr">
+              <div class="sec-title"><div class="sec-dot b"></div>Audit Trail ({auditTotal})</div>
+              <button class="btn btn-ghost btn-sm" on:click={loadAuditLogs}>REFRESH</button>
+            </div>
+            <div class="sec-body" style="padding:0">
+              <table class="tbl"><thead><tr><th>Time</th><th>Actor</th><th>Module</th><th>Action</th><th>Target</th></tr></thead><tbody>
+                {#each auditLogs as row}
+                  <tr>
+                    <td>{new Date(row.createdAt).toLocaleString()}</td>
+                    <td>@{row.actor?.username ?? "system"} <span style="color:var(--text3)">({row.actorRole ?? "-"})</span></td>
+                    <td>{row.module}</td>
+                    <td><code>{row.action}</code></td>
+                    <td>{row.targetType ?? "-"}:{row.targetId ?? "-"}</td>
                   </tr>
                 {/each}
               </tbody></table>
@@ -1279,13 +1486,26 @@
       {#if page === "api"}
         <div class="pg active" id="pg-api">
           <div class="grid-4" style="margin-bottom:16px">
-            {#each apiHealth as a}
-              <div class="stat-card" style="--accent:var(--green)">
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><div class={`h-dot ${a.cls}`}></div><div style="font-family:var(--mono);font-size:10px;color:var(--text2)">{a.name}</div></div>
-                <div style="font-family:var(--display);font-size:22px;font-weight:800;color:var(--green)">{a.status}</div>
-                <div style="display:flex;gap:8px;margin-top:4px;font-family:var(--mono);font-size:9px;color:var(--text3)"><span>{a.latency}</span><span>{a.up} uptime</span></div>
-              </div>
-            {/each}
+            <div class="stat-card" style="--accent:var(--green)">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><div class={`h-dot ${systemHealth?.services.api.status === "ok" ? "h-ok" : "h-err"}`}></div><div style="font-family:var(--mono);font-size:10px;color:var(--text2)">API Server</div></div>
+              <div style="font-family:var(--display);font-size:22px;font-weight:800;color:var(--green)">{systemHealth?.services.api.status?.toUpperCase() ?? "-"}</div>
+              <div style="display:flex;gap:8px;margin-top:4px;font-family:var(--mono);font-size:9px;color:var(--text3)"><span>uptime {systemHealth?.uptimeSec ?? 0}s</span></div>
+            </div>
+            <div class="stat-card" style="--accent:var(--blue)">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><div class={`h-dot ${systemHealth?.services.database.status === "ok" ? "h-ok" : "h-err"}`}></div><div style="font-family:var(--mono);font-size:10px;color:var(--text2)">Database</div></div>
+              <div style="font-family:var(--display);font-size:22px;font-weight:800;color:var(--blue)">{systemHealth?.services.database.latencyMs ?? 0}ms</div>
+              <div style="display:flex;gap:8px;margin-top:4px;font-family:var(--mono);font-size:9px;color:var(--text3)"><span>{systemHealth?.services.database.status ?? "-"}</span></div>
+            </div>
+            <div class="stat-card" style="--accent:var(--yellow)">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><div class={`h-dot ${systemHealth?.services.sessionStore.status === "ok" ? "h-ok" : "h-err"}`}></div><div style="font-family:var(--mono);font-size:10px;color:var(--text2)">Session Store</div></div>
+              <div style="font-family:var(--display);font-size:22px;font-weight:800;color:var(--yellow)">{systemHealth?.services.sessionStore.mode ?? "-"}</div>
+              <div style="display:flex;gap:8px;margin-top:4px;font-family:var(--mono);font-size:9px;color:var(--text3)"><span>{systemHealth?.services.sessionStore.latencyMs ?? 0}ms</span></div>
+            </div>
+            <div class="stat-card" style="--accent:var(--red)">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><div class={`h-dot ${(queueSnapshot?.highRiskPique ?? 0) > 0 ? "h-warn" : "h-ok"}`}></div><div style="font-family:var(--mono);font-size:10px;color:var(--text2)">Moderation Queue</div></div>
+              <div style="font-family:var(--display);font-size:22px;font-weight:800;color:var(--red)">{(queueSnapshot?.pendingCompliance ?? 0) + (queueSnapshot?.highRiskPique ?? 0)}</div>
+              <div style="display:flex;gap:8px;margin-top:4px;font-family:var(--mono);font-size:9px;color:var(--text3)"><span>compliance {queueSnapshot?.pendingCompliance ?? 0}</span><span>pique {queueSnapshot?.highRiskPique ?? 0}</span></div>
+            </div>
           </div>
           <div class="section"><div class="sec-hdr"><div class="sec-title"><div class="sec-dot b"></div>API Notes</div></div>
             <div class="sec-body"><div class="api-log"><span class="log-info">/api/*</span> should be no-cache behind Cloudflare.<br /><span class="log-ok">WAF:</span> strict rules enabled for admin subdomain.<br /><span class="log-ok">Rate limit:</span> 100 req/min per IP.</div></div></div>

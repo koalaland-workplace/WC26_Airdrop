@@ -16,7 +16,7 @@ export interface LoginResponse {
   profile?: Profile;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8787";
+export const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8787";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -291,4 +291,125 @@ export async function listPiqueConversations(
   return request(`/api/v1/pique/conversations${suffix}`, {
     headers: authedHeaders(accessToken)
   });
+}
+
+export interface AuditLogItem {
+  id: string;
+  actorId: string | null;
+  actorRole: AdminRole | null;
+  action: string;
+  module: string;
+  targetType: string | null;
+  targetId: string | null;
+  before: unknown;
+  after: unknown;
+  ipAddress: string | null;
+  createdAt: string;
+  actor:
+    | {
+        id: string;
+        username: string;
+        displayName: string;
+        role: AdminRole;
+      }
+    | null;
+}
+
+export async function listAuditLogs(
+  accessToken: string,
+  query: {
+    module?: string;
+    action?: string;
+    actorId?: string;
+    from?: string;
+    to?: string;
+    limit?: number;
+    offset?: number;
+  } = {}
+): Promise<{ items: AuditLogItem[]; total: number }> {
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") {
+      params.set(k, String(v));
+    }
+  });
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return request(`/api/v1/audit-logs${suffix}`, {
+    headers: authedHeaders(accessToken)
+  });
+}
+
+export interface SystemHealthSnapshot {
+  at: string;
+  uptimeSec: number;
+  services: {
+    api: { status: string; latencyMs: number };
+    database: { status: string; latencyMs: number };
+    sessionStore: { mode: "memory" | "redis"; status: string; latencyMs: number };
+  };
+}
+
+export interface SystemQueueSnapshot {
+  at: string;
+  pendingCompliance: number;
+  pendingAnnouncements: number;
+  highRiskPique: number;
+  bannedUsers: number;
+}
+
+export async function getSystemHealth(accessToken: string): Promise<SystemHealthSnapshot> {
+  return request("/api/v1/system/health", {
+    headers: authedHeaders(accessToken)
+  });
+}
+
+export async function getSystemQueue(accessToken: string): Promise<SystemQueueSnapshot> {
+  return request("/api/v1/system/queue", {
+    headers: authedHeaders(accessToken)
+  });
+}
+
+export function buildKickLedgerExportUrl(
+  accessToken: string,
+  query: { userId?: string; source?: string; from?: string; to?: string; limit?: number } = {}
+): string {
+  const params = new URLSearchParams();
+  params.set("accessToken", accessToken);
+  Object.entries(query).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") {
+      params.set(k, String(v));
+    }
+  });
+  return `${API_BASE}/api/v1/reports/kick-ledger/export.csv?${params.toString()}`;
+}
+
+export type FeedSnapshotPayload = {
+  at: string;
+  metrics: {
+    totalUsers: number;
+    onlineUsers: number;
+    totalKick: number;
+    pendingReviews: number;
+  };
+  activities: Array<{
+    id: string;
+    action: string;
+    module: string;
+    at: string;
+    actor: string;
+    role: string;
+  }>;
+};
+
+function streamUrl(path: string, accessToken: string): string {
+  const join = path.includes("?") ? "&" : "?";
+  return `${API_BASE}${path}${join}accessToken=${encodeURIComponent(accessToken)}`;
+}
+
+export function openSseStream(
+  path: "/api/v1/realtime/feed" | "/api/v1/realtime/health" | "/api/v1/realtime/queue",
+  accessToken: string
+): EventSource {
+  const es = new EventSource(streamUrl(path, accessToken));
+  return es;
 }
