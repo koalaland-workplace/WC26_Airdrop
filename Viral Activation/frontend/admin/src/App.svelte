@@ -529,7 +529,12 @@
     try {
       const pendingToken = get(session).pendingToken;
       if (!pendingToken) throw new Error("Pending token missing");
-      const res = await verifyTotp({ pendingToken, code: totpCode });
+      const code = totpCode.replace(/\D/g, "").slice(0, 6);
+      totpCode = code;
+      if (!/^\d{6}$/.test(code)) {
+        throw new Error("TOTP code must be 6 digits");
+      }
+      const res = await verifyTotp({ pendingToken, code });
       if (!res.accessToken || !res.refreshToken || !res.profile) {
         throw new Error("Invalid TOTP response");
       }
@@ -960,7 +965,17 @@
     <section class="auth-card">
       <h1>TOTP Verification</h1>
       <p class="auth-help">Role {$session.role ?? "owner/admin"} requires TOTP.</p>
-      <label>6-digit code <input bind:value={totpCode} maxlength="6" /></label>
+      <label
+        >6-digit code
+        <input
+          bind:value={totpCode}
+          maxlength="6"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          autocomplete="one-time-code"
+          on:input={() => (totpCode = totpCode.replace(/\D/g, "").slice(0, 6))}
+        />
+      </label>
       <button class="btn btn-g" disabled={loading} on:click={handleTotp}>Verify</button>
     </section>
   </main>

@@ -29,12 +29,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text();
+    let message = text || `HTTP ${res.status}`;
     try {
-      const parsed = JSON.parse(text) as { message?: string };
-      throw new Error(parsed.message ?? `HTTP ${res.status}`);
+      const parsed = JSON.parse(text) as { message?: unknown };
+      if (typeof parsed.message === "string" && parsed.message.trim().length > 0) {
+        message = parsed.message;
+      }
     } catch {
-      throw new Error(text || `HTTP ${res.status}`);
+      // Non-JSON error response
     }
+    throw new Error(message);
   }
   return (await res.json()) as T;
 }

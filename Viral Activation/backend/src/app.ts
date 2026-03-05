@@ -3,6 +3,7 @@ import fastifyCors from "@fastify/cors";
 import fastifySensible from "@fastify/sensible";
 import fastifyRateLimit from "@fastify/rate-limit";
 import fastifyWebsocket from "@fastify/websocket";
+import { ZodError } from "zod";
 import { loadConfig } from "./plugins/env.js";
 import { prismaPlugin } from "./plugins/prisma.js";
 import { pendingStorePlugin } from "./plugins/pending-store.js";
@@ -77,13 +78,20 @@ export async function createApp() {
 
   app.setErrorHandler((error, request, reply) => {
     request.log.error(error);
-    const statusCode =
-      typeof error === "object" && error !== null && "statusCode" in error
+    const isZodError = error instanceof ZodError;
+    const statusCode = isZodError
+      ? 400
+      : typeof error === "object" && error !== null && "statusCode" in error
         ? Number((error as { statusCode?: number }).statusCode ?? 500)
         : 500;
-    const message = error instanceof Error ? error.message : "Unexpected error";
-    const name = error instanceof Error ? error.name : "Error";
+    const message = isZodError
+      ? error.issues.map((issue) => `${issue.path.join(".") || "request"}: ${issue.message}`).join("; ")
+      : error instanceof Error
+        ? error.message
+        : "Unexpected error";
+    const name = isZodError ? "ValidationError" : error instanceof Error ? error.name : "Error";
     reply.status(statusCode).send({
+      statusCode,
       error: name,
       message
     });
