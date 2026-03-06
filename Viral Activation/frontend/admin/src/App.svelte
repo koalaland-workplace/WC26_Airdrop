@@ -599,12 +599,10 @@
 
   type SocialChannelForm = {
     id: string;
-    platform: string;
-    name: string;
+    category: string;
+    missionId: string;
     url: string;
     icon: string;
-    tasks: string;
-    kick: string;
     sortOrder: string;
     isActive: boolean;
   };
@@ -638,12 +636,10 @@
   function defaultSocialChannelForm(): SocialChannelForm {
     return {
       id: "",
-      platform: "Telegram",
-      name: "",
+      category: "",
+      missionId: "",
       url: "",
       icon: "📱",
-      tasks: "0",
-      kick: "0",
       sortOrder: "0",
       isActive: true
     };
@@ -781,6 +777,9 @@
   let mysteryTicketDelta = 1;
   let mysteryTicketReason = "Manual mystery ticket adjustment";
   let socialChannelForm: SocialChannelForm = defaultSocialChannelForm();
+  $: if (page === "social") {
+    ensureSocialFormSelection();
+  }
   let matchForm: {
     id: string;
     groupCode: string;
@@ -1110,15 +1109,96 @@
     socialChannelForm = defaultSocialChannelForm();
   }
 
+  function missionCategoryOptions(): string[] {
+    return [...new Set(missionsData.map((mission) => mission.category).filter((value) => value.trim().length > 0))].sort(
+      (left, right) => left.localeCompare(right)
+    );
+  }
+
+  function missionsForCategory(category: string): MissionItem[] {
+    if (!category.trim()) return missionsData;
+    return missionsData.filter((mission) => mission.category === category);
+  }
+
+  function findMissionById(missionId: string): MissionItem | null {
+    const found = missionsData.find((mission) => mission.id === missionId);
+    return found ?? null;
+  }
+
+  function findMappedMissionByChannelId(channelId: string): MissionItem | null {
+    const found = missionsData.find((mission) => mission.channelId === channelId);
+    return found ?? null;
+  }
+
+  function inferPlatformFromMission(mission: MissionItem): string {
+    const text = `${mission.category} ${mission.code} ${mission.name}`.toLowerCase();
+    if (text.includes("telegram") || text.includes("tg")) return "Telegram";
+    if (text.includes("twitter") || text.includes(" x")) return "Twitter/X";
+    if (text.includes("facebook") || text.includes("instagram") || text.includes("meta")) return "Meta";
+    if (text.includes("youtube")) return "YouTube";
+    if (text.includes("tiktok")) return "TikTok";
+    if (text.includes("referral") || text.includes("invite") || text.includes("growth")) return "Growth";
+    if (text.includes("amplification") || text.includes("share")) return "Amplification";
+    return "Social";
+  }
+
+  function inferIconFromPlatform(platform: string): string {
+    const key = platform.toLowerCase();
+    if (key.includes("telegram")) return "📣";
+    if (key.includes("twitter") || key.includes("x")) return "🐦";
+    if (key.includes("meta") || key.includes("instagram") || key.includes("facebook")) return "📸";
+    if (key.includes("youtube")) return "▶️";
+    if (key.includes("tiktok")) return "🎬";
+    if (key.includes("growth")) return "🚀";
+    if (key.includes("amplification")) return "📢";
+    return "🔗";
+  }
+
+  function ensureSocialFormSelection() {
+    if (socialChannelForm.id) return;
+    const categories = missionCategoryOptions();
+    let category = socialChannelForm.category;
+    if (!category || !categories.includes(category)) {
+      category = categories[0] ?? "";
+    }
+    const missions = missionsForCategory(category);
+    let missionId = socialChannelForm.missionId;
+    if (!missionId || !missions.some((mission) => mission.id === missionId)) {
+      missionId = missions[0]?.id ?? "";
+    }
+    if (category !== socialChannelForm.category || missionId !== socialChannelForm.missionId) {
+      socialChannelForm = {
+        ...socialChannelForm,
+        category,
+        missionId
+      };
+    }
+  }
+
+  function onSocialCategoryChanged(nextCategory: string) {
+    const missions = missionsForCategory(nextCategory);
+    socialChannelForm = {
+      ...socialChannelForm,
+      category: nextCategory,
+      missionId: missions[0]?.id ?? ""
+    };
+  }
+
+  function handleSocialCategoryChange(event: Event) {
+    const target = event.currentTarget as HTMLSelectElement | null;
+    onSocialCategoryChanged(target?.value ?? "");
+  }
+
   function setSocialChannelFormFromItem(channel: SocialChannelItem) {
+    const linkedMission = findMappedMissionByChannelId(channel.id);
+    const categories = missionCategoryOptions();
+    const fallbackCategory = categories[0] ?? "";
     socialChannelForm = {
       id: channel.id,
-      platform: channel.platform,
-      name: channel.name,
+      category: linkedMission?.category ?? fallbackCategory,
+      missionId: linkedMission?.id ?? "",
       url: channel.url,
-      icon: channel.icon ?? "",
-      tasks: String(channel.tasks),
-      kick: String(channel.kick),
+      icon: channel.icon ?? inferIconFromPlatform(channel.platform),
       sortOrder: String(channel.sortOrder),
       isActive: channel.isActive
     };
@@ -1382,7 +1462,7 @@
     if (next === "matches") await loadMatches();
     if (next === "missions") await Promise.all([loadMissions(), loadSocialChannels()]);
     if (next === "mysterybox") await loadMysteryBox();
-    if (next === "social") await loadSocialChannels();
+    if (next === "social") await Promise.all([loadMissions(), loadSocialChannels()]);
   }
 
   async function loadDashboard() {
@@ -1586,30 +1666,56 @@
   }
 
   async function submitSocialChannel() {
-    if (!socialChannelForm.platform.trim() || !socialChannelForm.name.trim() || !socialChannelForm.url.trim()) {
-      error = "Platform, name, and URL are required";
+    const selectedMission = findMissionById(socialChannelForm.missionId);
+    const channelUrl = asText(socialChannelForm.url).trim();
+    if (!selectedMission) {
+      error = "Please select a mission";
       return;
     }
+    if (!channelUrl) {
+      error = "Please input channel URL";
+      return;
+    }
+
+    const platform = inferPlatformFromMission(selectedMission);
+    const channelName = selectedMission.name;
+    const icon = asText(socialChannelForm.icon).trim() || inferIconFromPlatform(platform);
+    const sortOrder = toSafeInt(socialChannelForm.sortOrder, 0);
 
     loading = true;
     error = "";
     try {
-      await withAccess((token) =>
+      const savedChannel = await withAccess((token) =>
         upsertSocialChannel(token, {
           id: socialChannelForm.id || undefined,
-          platform: socialChannelForm.platform.trim(),
-          name: socialChannelForm.name.trim(),
-          url: socialChannelForm.url.trim(),
-          icon: socialChannelForm.icon.trim() || undefined,
-          tasks: toSafeInt(socialChannelForm.tasks, 0),
-          kick: toSafeInt(socialChannelForm.kick, 0),
-          sortOrder: toSafeInt(socialChannelForm.sortOrder, 0),
+          platform,
+          name: channelName,
+          url: channelUrl,
+          icon,
+          tasks: 1,
+          kick: selectedMission.rewardKick,
+          sortOrder,
           isActive: socialChannelForm.isActive
         })
       );
+
+      await withAccess((token) =>
+        upsertMission(token, {
+          id: selectedMission.id,
+          code: selectedMission.code,
+          name: selectedMission.name,
+          phase: selectedMission.phase,
+          category: selectedMission.category,
+          channelId: savedChannel.id,
+          rewardKick: selectedMission.rewardKick,
+          capPerDay: selectedMission.capPerDay ?? undefined,
+          isActive: selectedMission.isActive
+        })
+      );
+
       showToast(socialChannelForm.id ? "Social channel updated" : "Social channel created");
       resetSocialChannelForm();
-      await loadSocialChannels();
+      await Promise.all([loadSocialChannels(), loadMissions()]);
     } catch (e) {
       error = (e as Error).message;
     } finally {
@@ -3043,6 +3149,8 @@
                     <thead>
                       <tr>
                         <th>Platform</th>
+                        <th>Category</th>
+                        <th>Mission</th>
                         <th>Name</th>
                         <th>URL</th>
                         <th>Tasks</th>
@@ -3055,12 +3163,14 @@
                     <tbody>
                       {#if socialChannels.length === 0}
                         <tr>
-                          <td colspan="8" style="text-align:center;color:var(--text3)">No social channels found. Create one below.</td>
+                          <td colspan="10" style="text-align:center;color:var(--text3)">No social channels found. Create one below.</td>
                         </tr>
                       {:else}
                         {#each socialChannels as ch}
                           <tr>
                             <td>{ch.icon ?? "🔗"} {ch.platform}</td>
+                            <td>{findMappedMissionByChannelId(ch.id)?.category ?? "-"}</td>
+                            <td>{findMappedMissionByChannelId(ch.id)?.name ?? "-"}</td>
                             <td>{ch.name}</td>
                             <td><span class="sc-url">{ch.url}</span></td>
                             <td>{ch.tasks}</td>
@@ -3089,20 +3199,35 @@
                   <div style="display:grid;gap:8px;border-top:1px solid var(--border);padding-top:10px">
                     <div class="sec-title" style="font-size:14px"><div class="sec-dot y"></div>{socialChannelForm.id ? "Update Channel" : "Create Channel"}</div>
                     <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
-                      <input class="inp" placeholder="Platform (Telegram/Twitter/X...)" bind:value={socialChannelForm.platform} />
-                      <input class="inp" placeholder="Channel Name" bind:value={socialChannelForm.name} />
-                      <input class="inp" placeholder="URL" bind:value={socialChannelForm.url} />
-                      <input class="inp" placeholder="Icon (emoji)" bind:value={socialChannelForm.icon} />
+                      <select
+                        class="inp"
+                        bind:value={socialChannelForm.category}
+                        on:change={handleSocialCategoryChange}
+                      >
+                        {#each missionCategoryOptions() as category}
+                          <option value={category}>{category}</option>
+                        {/each}
+                      </select>
+                      <select class="inp" bind:value={socialChannelForm.missionId}>
+                        {#each missionsForCategory(socialChannelForm.category) as mission}
+                          <option value={mission.id}>{mission.name}</option>
+                        {/each}
+                      </select>
+                      <input class="inp" placeholder="Channel URL (t.me/... or x.com/...)" bind:value={socialChannelForm.url} />
+                      <input class="inp" placeholder="Icon (optional emoji)" bind:value={socialChannelForm.icon} />
                     </div>
                     <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;align-items:center">
-                      <input class="inp" type="number" min="0" placeholder="Tasks" bind:value={socialChannelForm.tasks} />
-                      <input class="inp" type="number" min="0" placeholder="KICK reward" bind:value={socialChannelForm.kick} />
+                      <input class="inp" value={findMissionById(socialChannelForm.missionId)?.category ?? "-"} readonly />
+                      <input class="inp" value={String(findMissionById(socialChannelForm.missionId)?.rewardKick ?? 0)} readonly />
                       <input class="inp" type="number" placeholder="Sort order" bind:value={socialChannelForm.sortOrder} />
                       <label class="toggle">
                         <input type="checkbox" bind:checked={socialChannelForm.isActive} />
                         <span class="toggle-slider"></span>
                       </label>
                     </div>
+                    {#if missionsForCategory(socialChannelForm.category).length === 0}
+                      <div style="font-size:11px;color:var(--text3)">No missions in selected category. Create mission first.</div>
+                    {/if}
                     <div style="display:flex;justify-content:flex-end;gap:8px">
                       <button class="btn btn-ghost btn-sm" on:click={resetSocialChannelForm}>RESET</button>
                       <button class="btn btn-g btn-sm" on:click={submitSocialChannel}>
