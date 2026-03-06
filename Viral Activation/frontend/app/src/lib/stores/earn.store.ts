@@ -64,6 +64,17 @@ function normalizeReferral(referral: ReferralState): ReferralState {
 function normalizeTask(task: EarnTask): EarnTask {
   const points = Math.max(0, Math.floor(Number(task.points) || 0));
   const tone = task.tone === "y" || task.tone === "b" || task.tone === "r" ? task.tone : "g";
+  const channel =
+    task.channel && typeof task.channel === "object"
+      ? {
+          id: String(task.channel.id || ""),
+          name: String(task.channel.name || ""),
+          platform: String(task.channel.platform || ""),
+          url: String(task.channel.url || "#"),
+          icon: String(task.channel.icon || "🔗"),
+          isActive: task.channel.isActive !== false
+        }
+      : null;
   return {
     ...task,
     id: String(task.id),
@@ -76,7 +87,8 @@ function normalizeTask(task: EarnTask): EarnTask {
     tone,
     isActive: task.isActive !== false,
     requiresVerification: Boolean(task.requiresVerification),
-    verificationHint: typeof task.verificationHint === "string" ? task.verificationHint : null
+    verificationHint: typeof task.verificationHint === "string" ? task.verificationHint : null,
+    channel
   };
 }
 

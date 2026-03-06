@@ -188,14 +188,17 @@ model Mission {
   name       String
   phase      String            @default("Viral Activation")
   category   String            @default("daily")
+  channelId  String?
   rewardKick Int
   isActive   Boolean           @default(true)
   capPerDay  Int?
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt
   progresses MissionProgress[]
+  channel    SocialChannel?    @relation(fields: [channelId], references: [id], onDelete: SetNull)
 
   @@index([isActive, category])
+  @@index([channelId])
 }
 
 model MissionProgress {
@@ -225,6 +228,7 @@ model SocialChannel {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  missions  Mission[]
 
   @@index([isActive, sortOrder])
   @@index([platform])

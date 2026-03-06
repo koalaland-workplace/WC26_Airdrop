@@ -22,6 +22,14 @@ export interface EarnTask {
   isActive?: boolean;
   requiresVerification?: boolean;
   verificationHint?: string | null;
+  channel?: {
+    id: string;
+    name: string;
+    platform: string;
+    url: string;
+    icon: string;
+    isActive: boolean;
+  } | null;
 }
 
 export interface EarnClaimResult {

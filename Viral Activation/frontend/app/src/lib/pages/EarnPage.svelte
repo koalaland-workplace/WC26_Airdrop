@@ -194,9 +194,23 @@
                 · verification required
               {/if}
             </div>
+            {#if task.channel}
+              <div class={`task-ch ${task.channel.isActive ? "" : "off"}`}>
+                <span class="task-ch-icon">{task.channel.icon}</span>
+                <span class="task-ch-name">{task.channel.name}</span>
+                <span class="task-ch-platform">{task.channel.platform}</span>
+              </div>
+            {/if}
           </div>
           <div class="task-r">
             <div class="task-pts">+{task.points.toLocaleString("en-US")}</div>
+            {#if task.channel}
+              {#if task.channel.isActive}
+                <a class="task-open" href={task.channel.url} target="_blank" rel="noreferrer">OPEN</a>
+              {:else}
+                <span class="task-open off">CHANNEL OFF</span>
+              {/if}
+            {/if}
             {#if task.requiresVerification && verifiedTaskSet.has(task.id) && !claimedTaskSet.has(task.id)}
               <div class="task-vf">VERIFIED</div>
             {/if}

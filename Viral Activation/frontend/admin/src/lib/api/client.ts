@@ -714,6 +714,17 @@ export interface MissionItem {
   name: string;
   phase: string;
   category: string;
+  channelId: string | null;
+  channel:
+    | {
+        id: string;
+        platform: string;
+        name: string;
+        url: string;
+        icon: string | null;
+        isActive: boolean;
+      }
+    | null;
   rewardKick: number;
   isActive: boolean;
   capPerDay: number | null;
@@ -729,6 +740,7 @@ export interface MissionUpsertPayload {
   name: string;
   phase?: string;
   category?: string;
+  channelId?: string | null;
   rewardKick: number;
   capPerDay?: number;
   isActive?: boolean;
@@ -740,6 +752,17 @@ export interface MissionMutationResult {
   name: string;
   phase: string;
   category: string;
+  channelId: string | null;
+  channel:
+    | {
+        id: string;
+        platform: string;
+        name: string;
+        url: string;
+        icon: string | null;
+        isActive: boolean;
+      }
+    | null;
   rewardKick: number;
   capPerDay: number | null;
   isActive: boolean;

@@ -130,6 +130,14 @@ interface EarnCatalogTask {
   isActive: boolean;
   requiresVerification: boolean;
   verificationHint: string | null;
+  channel: {
+    id: string;
+    name: string;
+    platform: string;
+    url: string;
+    icon: string;
+    isActive: boolean;
+  } | null;
 }
 
 const categoryMetaMap: Record<string, { icon: string; title: string; tone: EarnCatalogTone }> = {
@@ -278,7 +286,8 @@ function extractProofHostname(proof: string): string | null {
 function validateMissionProof(
   code: string,
   category: string,
-  proof: string
+  proof: string,
+  channelUrl?: string | null
 ): { ok: true } | { ok: false; message: string } {
   const trimmed = proof.trim();
   if (trimmed.length < 6) {
@@ -289,6 +298,27 @@ function validateMissionProof(
   }
 
   const hosts = expectedProofHosts(code, category);
+  if (channelUrl && channelUrl.trim().length > 0) {
+    const channelHost = extractProofHostname(channelUrl);
+    if (channelHost) {
+      const submittedHost = extractProofHostname(trimmed);
+      if (!submittedHost) {
+        return {
+          ok: false,
+          message: `Proof must be a valid public link (${channelHost})`
+        };
+      }
+      const hostMatched = submittedHost === channelHost || submittedHost.endsWith(`.${channelHost}`);
+      if (!hostMatched) {
+        return {
+          ok: false,
+          message: `Proof link must match assigned channel host: ${channelHost}`
+        };
+      }
+      return { ok: true };
+    }
+  }
+
   if (hosts.length === 0) return { ok: true };
 
   const hostname = extractProofHostname(trimmed);
@@ -384,6 +414,18 @@ export const appGameRoutes: FastifyPluginAsync = async (app) => {
   app.get("/api/earn/tasks/catalog", async () => {
     const [missions, channels] = await Promise.all([
       app.prisma.mission.findMany({
+        include: {
+          channel: {
+            select: {
+              id: true,
+              platform: true,
+              name: true,
+              url: true,
+              icon: true,
+              isActive: true
+            }
+          }
+        },
         orderBy: [{ isActive: "desc" }, { category: "asc" }, { rewardKick: "desc" }, { createdAt: "asc" }]
       }),
       app.prisma.socialChannel.findMany({
@@ -414,6 +456,16 @@ export const appGameRoutes: FastifyPluginAsync = async (app) => {
         requiresVerification,
         verificationHint: requiresVerification
           ? missionVerificationHint(mission.code, mission.category)
+          : null,
+        channel: mission.channel
+          ? {
+              id: mission.channel.id,
+              platform: mission.channel.platform,
+              name: mission.channel.name,
+              url: mission.channel.url,
+              icon: mission.channel.icon ?? "🔗",
+              isActive: mission.channel.isActive
+            }
           : null
       };
     });
@@ -470,7 +522,17 @@ export const appGameRoutes: FastifyPluginAsync = async (app) => {
     ensureToday(session.state);
 
     const mission = await app.prisma.mission.findUnique({
-      where: { code: body.taskId }
+      where: { code: body.taskId },
+      include: {
+        channel: {
+          select: {
+            id: true,
+            name: true,
+            url: true,
+            isActive: true
+          }
+        }
+      }
     });
     if (!mission) {
       return reply.status(404).send({ ok: false, error: "task_not_found", message: "Task not found." });
@@ -488,7 +550,12 @@ export const appGameRoutes: FastifyPluginAsync = async (app) => {
           .status(400)
           .send({ ok: false, error: "proof_required", message: "Please submit proof before claiming KICK." });
       }
-      const proofCheck = validateMissionProof(mission.code, mission.category, body.proof);
+      const proofCheck = validateMissionProof(
+        mission.code,
+        mission.category,
+        body.proof,
+        mission.channel?.url ?? null
+      );
       if (!proofCheck.ok) {
         return reply.status(400).send({ ok: false, error: "invalid_proof", message: proofCheck.message });
       }
@@ -517,12 +584,27 @@ export const appGameRoutes: FastifyPluginAsync = async (app) => {
     ensureToday(session.state);
 
     const mission = await app.prisma.mission.findUnique({
-      where: { code: body.taskId }
+      where: { code: body.taskId },
+      include: {
+        channel: {
+          select: {
+            id: true,
+            isActive: true
+          }
+        }
+      }
     });
     if (mission && !mission.isActive) {
       return reply
         .status(409)
         .send({ ok: false, error: "inactive_task", message: "Task is inactive and cannot be completed." });
+    }
+    if (mission?.channel && !mission.channel.isActive) {
+      return reply.status(409).send({
+        ok: false,
+        error: "inactive_channel",
+        message: "Linked channel is inactive. Contact admin."
+      });
     }
 
     const requiresVerification = mission

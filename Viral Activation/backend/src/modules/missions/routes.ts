@@ -18,6 +18,7 @@ const upsertSchema = z.object({
   name: z.string().min(2).max(200),
   phase: z.string().min(2).max(120).default("Viral Activation"),
   category: z.string().min(2).max(50).default("daily"),
+  channelId: z.string().trim().optional().nullable(),
   rewardKick: z.coerce.number().int().min(0).max(1_000_000),
   capPerDay: z.coerce.number().int().min(0).max(1000).optional(),
   isActive: z.boolean().default(true)
@@ -34,6 +35,18 @@ export const missionsRoutes: FastifyPluginAsync = async (app) => {
     const [items, total, progressAgg] = await Promise.all([
       app.prisma.mission.findMany({
         where,
+        include: {
+          channel: {
+            select: {
+              id: true,
+              platform: true,
+              name: true,
+              url: true,
+              icon: true,
+              isActive: true
+            }
+          }
+        },
         orderBy: [{ isActive: "desc" }, { rewardKick: "desc" }],
         take: q.limit,
         skip: q.offset
@@ -64,26 +77,77 @@ export const missionsRoutes: FastifyPluginAsync = async (app) => {
     { preHandler: app.requirePermission("missions.manage") },
     async (request) => {
       const body = upsertSchema.parse(request.body);
-      const before = body.id ? await app.prisma.mission.findUnique({ where: { id: body.id } }) : null;
+      const channelIdRaw = typeof body.channelId === "string" ? body.channelId : "";
+      const channelId = channelIdRaw.trim().length > 0 ? channelIdRaw.trim() : null;
+      if (channelId) {
+        const channel = await app.prisma.socialChannel.findUnique({ where: { id: channelId } });
+        if (!channel) {
+          throw app.httpErrors.badRequest("Social channel not found");
+        }
+      }
+
+      const before = body.id
+        ? await app.prisma.mission.findUnique({
+            where: { id: body.id },
+            include: {
+              channel: {
+                select: {
+                  id: true,
+                  platform: true,
+                  name: true,
+                  url: true,
+                  icon: true,
+                  isActive: true
+                }
+              }
+            }
+          })
+        : null;
       const after = body.id
         ? await app.prisma.mission.update({
             where: { id: body.id },
+            include: {
+              channel: {
+                select: {
+                  id: true,
+                  platform: true,
+                  name: true,
+                  url: true,
+                  icon: true,
+                  isActive: true
+                }
+              }
+            },
             data: {
               code: body.code,
               name: body.name,
               phase: body.phase,
               category: body.category,
+              channelId,
               rewardKick: body.rewardKick,
               capPerDay: body.capPerDay,
               isActive: body.isActive
             }
           })
         : await app.prisma.mission.create({
+            include: {
+              channel: {
+                select: {
+                  id: true,
+                  platform: true,
+                  name: true,
+                  url: true,
+                  icon: true,
+                  isActive: true
+                }
+              }
+            },
             data: {
               code: body.code,
               name: body.name,
               phase: body.phase,
               category: body.category,
+              channelId,
               rewardKick: body.rewardKick,
               capPerDay: body.capPerDay,
               isActive: body.isActive

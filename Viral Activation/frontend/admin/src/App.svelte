@@ -812,6 +812,7 @@
     name: string;
     phase: string;
     category: string;
+    channelId: string;
     rewardKick: string;
     capPerDay: string;
     isActive: boolean;
@@ -821,6 +822,7 @@
     name: "",
     phase: "Viral Activation",
     category: "daily",
+    channelId: "",
     rewardKick: "100",
     capPerDay: "",
     isActive: true
@@ -968,6 +970,7 @@
       name: "",
       phase: "Viral Activation",
       category: "daily",
+      channelId: "",
       rewardKick: "100",
       capPerDay: "",
       isActive: true
@@ -1128,6 +1131,7 @@
       name: mission.name,
       phase: mission.phase,
       category: mission.category,
+      channelId: mission.channelId ?? "",
       rewardKick: String(mission.rewardKick),
       capPerDay: mission.capPerDay === null ? "" : String(mission.capPerDay),
       isActive: mission.isActive
@@ -1376,7 +1380,7 @@
     if (next === "board") await loadBoard();
     if (next === "referrals") await loadReferrals();
     if (next === "matches") await loadMatches();
-    if (next === "missions") await loadMissions();
+    if (next === "missions") await Promise.all([loadMissions(), loadSocialChannels()]);
     if (next === "mysterybox") await loadMysteryBox();
     if (next === "social") await loadSocialChannels();
   }
@@ -1746,6 +1750,7 @@
           name,
           phase,
           category,
+          channelId: asText(missionForm.channelId).trim() || null,
           rewardKick: Math.trunc(rewardKick),
           capPerDay: parseOptionalInt(missionForm.capPerDay, "cap per day"),
           isActive: missionForm.isActive
@@ -2680,10 +2685,12 @@
               <button class="btn btn-ghost btn-sm" on:click={loadMissions}>REFRESH</button>
             </div>
             <div class="sec-body" style="padding:0">
-              <table class="tbl"><thead><tr><th>Code</th><th>Mission</th><th>Phase</th><th>Category</th><th>Reward</th><th>Cap/Day</th><th>Completions</th><th>Awarded</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+              <table class="tbl"><thead><tr><th>Code</th><th>Mission</th><th>Phase</th><th>Category</th><th>Channel</th><th>Reward</th><th>Cap/Day</th><th>Completions</th><th>Awarded</th><th>Status</th><th>Actions</th></tr></thead><tbody>
                 {#each missionsData as m}
                   <tr>
-                    <td>{m.code}</td><td>{m.name}</td><td>{m.phase}</td><td>{m.category}</td><td>{m.rewardKick} KICK</td><td>{m.capPerDay ?? "-"}</td>
+                    <td>{m.code}</td><td>{m.name}</td><td>{m.phase}</td><td>{m.category}</td>
+                    <td>{m.channel ? `${m.channel.platform} · ${m.channel.name}` : "-"}</td>
+                    <td>{m.rewardKick} KICK</td><td>{m.capPerDay ?? "-"}</td>
                     <td>{m.stats.completions}</td>
                     <td>{m.stats.awardedKick.toLocaleString()}</td>
                     <td><span class={`tag ${m.isActive ? "tag-g" : "tag-r"}`}>{m.isActive ? "ACTIVE" : "OFF"}</span></td>
@@ -2715,13 +2722,28 @@
                   <input class="inp" placeholder="Phase" bind:value={missionForm.phase} />
                   <input class="inp" placeholder="Category" bind:value={missionForm.category} />
                 </div>
-                <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;align-items:center">
+                <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+                  <select class="inp" bind:value={missionForm.channelId}>
+                    <option value="">No channel mapped</option>
+                    {#each socialChannels as channel}
+                      <option value={channel.id}>
+                        {channel.platform} · {channel.name} {channel.isActive ? "" : "(OFF)"}
+                      </option>
+                    {/each}
+                  </select>
                   <input class="inp" type="number" placeholder="Reward KICK" bind:value={missionForm.rewardKick} />
                   <input class="inp" type="number" placeholder="Cap per day (optional)" bind:value={missionForm.capPerDay} />
                   <label class="toggle">
                     <input type="checkbox" bind:checked={missionForm.isActive} />
                     <span class="toggle-slider"></span>
                   </label>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center">
+                  <div style="font-size:11px;color:var(--text3)">
+                    Linked Channel:
+                    <b>{missionForm.channelId ? socialChannels.find((x) => x.id === missionForm.channelId)?.name || "Unknown" : "None"}</b>
+                  </div>
+                  <div></div>
                   <div style="display:flex;justify-content:flex-end;gap:8px">
                     <button class="btn btn-ghost btn-sm" on:click={resetMissionForm}>RESET</button>
                     <button class="btn btn-g btn-sm" on:click={submitMission}>{missionForm.id ? "UPDATE MISSION" : "CREATE MISSION"}</button>
