@@ -315,23 +315,9 @@ function buildNewsUrl(config: FootballNewsConfig): URL {
 }
 
 function buildFixturesUrl(config: FootballNewsConfig): URL {
-  const url = new URL(normalizePath(config.endpoints.fixtures), config.baseUrl);
-
-  const hasCompetition = url.searchParams.has("competition") || url.searchParams.has("competitions");
-  if (!hasCompetition && config.defaults.competitions.length > 0) {
-    url.searchParams.set("competitions", config.defaults.competitions.join(","));
-    if (config.defaults.competitions.length === 1) {
-      url.searchParams.set("competition", config.defaults.competitions[0]);
-    }
-  }
-  if (!url.searchParams.has("timezone")) {
-    url.searchParams.set("timezone", config.defaults.timezone);
-  }
-  if (!url.searchParams.has("language") && !url.searchParams.has("lang")) {
-    url.searchParams.set("language", config.defaults.language);
-    url.searchParams.set("lang", config.defaults.language);
-  }
-  return url;
+  // Keep fixtures endpoint untouched so admins can pass provider-specific query params
+  // (e.g. /fixtures?league=1&season=2024) without auto-injected incompatible params.
+  return new URL(normalizePath(config.endpoints.fixtures), config.baseUrl);
 }
 
 async function fetchProviderNews(config: FootballNewsConfig): Promise<{
@@ -608,10 +594,15 @@ export const newsRoutes: FastifyPluginAsync = async (app) => {
       let fixturesCreated = 0;
       let fixturesUpdated = 0;
 
-      const newsFetch = await fetchProviderNews(config);
-      newsRequestUrl = newsFetch.requestUrl;
-      newsFetched = newsFetch.fetched;
-      newsStored = await upsertNewsItems(app, config, newsFetch.items);
+      try {
+        const newsFetch = await fetchProviderNews(config);
+        newsRequestUrl = newsFetch.requestUrl;
+        newsFetched = newsFetch.fetched;
+        newsStored = await upsertNewsItems(app, config, newsFetch.items);
+      } catch (newsError) {
+        const msg = newsError instanceof Error ? newsError.message : "News sync failed";
+        warnings.push(msg);
+      }
 
       try {
         const fixtureFetch = await fetchProviderFixtures(config);
@@ -624,6 +615,10 @@ export const newsRoutes: FastifyPluginAsync = async (app) => {
       } catch (fixtureError) {
         const msg = fixtureError instanceof Error ? fixtureError.message : "Fixture sync failed";
         warnings.push(msg);
+      }
+
+      if (!newsRequestUrl && !fixturesRequestUrl) {
+        throw new Error(warnings.join(" | ") || "News/fixtures sync failed");
       }
 
       const completedAt = new Date().toISOString();
