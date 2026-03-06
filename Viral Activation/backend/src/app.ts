@@ -24,6 +24,7 @@ import { missionsRoutes } from "./modules/missions/routes.js";
 import { socialRoutes } from "./modules/social/routes.js";
 import { newsRoutes } from "./modules/news/routes.js";
 import { leaderboardRoutes } from "./modules/leaderboard/routes.js";
+import { mysteryBoxRoutes } from "./modules/mystery-box/routes.js";
 
 export async function createApp() {
   const config = loadConfig();
@@ -69,6 +70,7 @@ export async function createApp() {
   await app.register(socialRoutes);
   await app.register(newsRoutes);
   await app.register(leaderboardRoutes);
+  await app.register(mysteryBoxRoutes);
 
   app.get("/api/v1/ws/feed", { websocket: true }, (connection) => {
     const timer = setInterval(() => {

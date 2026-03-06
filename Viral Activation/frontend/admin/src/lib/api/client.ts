@@ -124,6 +124,7 @@ export interface AppUser {
   nationCode: string;
   status: UserStatus;
   kick: number;
+  mysteryTickets?: number;
   createdAt: string;
 }
 
@@ -848,5 +849,74 @@ export async function deleteSocialChannel(accessToken: string, id: string): Prom
   return request(`/api/v1/social/channels/${id}`, {
     method: "DELETE",
     headers: authedHeaders(accessToken)
+  });
+}
+
+export type MysteryBoxTier = "rising" | "elite" | "legacy" | "vanguard";
+
+export interface MysteryBoxAllocationItem {
+  tier: MysteryBoxTier;
+  totalBoxes: number;
+  minKick: number;
+  maxPerUser: number;
+  isActive: boolean;
+}
+
+export interface MysteryBoxAllocationConfig {
+  allocations: MysteryBoxAllocationItem[];
+  requireActiveDays: number;
+  requireSybilPass: boolean;
+  snapshotAt: string | null;
+}
+
+export interface MysteryBoxTicketUser extends AppUser {
+  mysteryTickets: number;
+  eligibleTier: MysteryBoxTier | null;
+}
+
+export async function getMysteryBoxAllocations(accessToken: string): Promise<{
+  key: string;
+  value: MysteryBoxAllocationConfig;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}> {
+  return request("/api/v1/mystery-box/allocations", {
+    headers: authedHeaders(accessToken)
+  });
+}
+
+export async function updateMysteryBoxAllocations(
+  accessToken: string,
+  payload: MysteryBoxAllocationConfig
+): Promise<{ key: string; value: MysteryBoxAllocationConfig; updatedAt: string; updatedBy: string | null }> {
+  return request("/api/v1/mystery-box/allocations", {
+    method: "PUT",
+    headers: authedHeaders(accessToken),
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function listMysteryBoxTicketUsers(
+  accessToken: string,
+  query: { q?: string; tier?: MysteryBoxTier; limit?: number; offset?: number } = {}
+): Promise<{ items: MysteryBoxTicketUser[]; total: number; totalTickets: number }> {
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") params.set(k, String(v));
+  });
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return request(`/api/v1/mystery-box/tickets${suffix}`, {
+    headers: authedHeaders(accessToken)
+  });
+}
+
+export async function adjustMysteryBoxTickets(
+  accessToken: string,
+  payload: { userId: string; delta: number; reason: string }
+): Promise<{ ok: boolean; userId: string; mysteryTickets: number }> {
+  return request("/api/v1/mystery-box/tickets/adjust", {
+    method: "POST",
+    headers: authedHeaders(accessToken),
+    body: JSON.stringify(payload)
   });
 }

@@ -2,8 +2,10 @@
   import { get } from "svelte/store";
   import { onDestroy, onMount } from "svelte";
   import {
+    adjustMysteryBoxTickets,
     adjustKick,
     createAnnouncement,
+    getMysteryBoxAllocations,
     downloadAuditLogsCsv,
     downloadKickLedgerCsv,
     getConfig,
@@ -20,6 +22,7 @@
     listKickLeaderboard,
     listMatches,
     listMissions,
+    listMysteryBoxTicketUsers,
     listNationsLeaderboard,
     listPiqueConversations,
     listReferralChains,
@@ -34,6 +37,7 @@
     deleteSocialChannel,
     updateConfig,
     updateMatchStatus,
+    updateMysteryBoxAllocations,
     updateReferralsConfig,
     toggleSocialChannel,
     updateUserStatus,
@@ -52,6 +56,8 @@
     type KickLedgerItem,
     type MatchFixture,
     type MissionItem,
+    type MysteryBoxAllocationConfig,
+    type MysteryBoxTicketUser,
     type NationLeaderboardItem,
     type PiqueConversation,
     type ReferrerLeaderboardItem,
@@ -643,6 +649,20 @@
     };
   }
 
+  function defaultMysteryBoxAllocationConfig(): MysteryBoxAllocationConfig {
+    return {
+      allocations: [
+        { tier: "rising", totalBoxes: 25000, minKick: 25000, maxPerUser: 25, isActive: true },
+        { tier: "elite", totalBoxes: 10000, minKick: 100000, maxPerUser: 25, isActive: true },
+        { tier: "legacy", totalBoxes: 5000, minKick: 250000, maxPerUser: 10, isActive: true },
+        { tier: "vanguard", totalBoxes: 1000, minKick: 1000000, maxPerUser: 10, isActive: true }
+      ],
+      requireActiveDays: 7,
+      requireSybilPass: true,
+      snapshotAt: null
+    };
+  }
+
   let page: PageId = "dashboard";
   let sidebarCollapsed = false;
   let sidebarLogoBroken = false;
@@ -752,6 +772,14 @@
   let missionsData: MissionItem[] = [];
   let socialChannels: SocialChannelItem[] = [];
   let socialChannelsTotal = 0;
+  let mysteryConfig: MysteryBoxAllocationConfig = defaultMysteryBoxAllocationConfig();
+  let mysteryTicketUsers: MysteryBoxTicketUser[] = [];
+  let mysteryTicketsTotal = 0;
+  let mysteryTicketsSum = 0;
+  let mysteryTicketQ = "";
+  let mysterySelectedUserId = "";
+  let mysteryTicketDelta = 1;
+  let mysteryTicketReason = "Manual mystery ticket adjustment";
   let socialChannelForm: SocialChannelForm = defaultSocialChannelForm();
   let matchForm: {
     id: string;
@@ -1099,6 +1127,31 @@
     };
   }
 
+  function patchMysteryAllocation(
+    index: number,
+    patch: Partial<MysteryBoxAllocationConfig["allocations"][number]>
+  ) {
+    mysteryConfig = {
+      ...mysteryConfig,
+      allocations: mysteryConfig.allocations.map((row, i) => (i === index ? { ...row, ...patch } : row))
+    };
+  }
+
+  function tierLabel(tier: string): string {
+    return tier.charAt(0).toUpperCase() + tier.slice(1);
+  }
+
+  function mysterySnapshotInputValue(): string {
+    return mysteryConfig.snapshotAt ? toDatetimeLocalValue(mysteryConfig.snapshotAt) : "";
+  }
+
+  function setMysterySnapshot(value: string) {
+    mysteryConfig = {
+      ...mysteryConfig,
+      snapshotAt: value.trim() ? new Date(value).toISOString() : null
+    };
+  }
+
   function feedItemFromAudit(activity: FeedSnapshotPayload["activities"][number]) {
     const iconMap: Record<string, string> = {
       auth: "🔐",
@@ -1285,6 +1338,9 @@
     if (can("dashboard.read")) {
       tasks.push(loadOperationalData(), loadLeaderboard(), loadReferrals(), loadMatches(), loadMissions(), loadSocialChannels());
     }
+    if (can("economy.manage")) {
+      tasks.push(loadMysteryBox());
+    }
 
     await Promise.all(tasks);
     liveFeed = [
@@ -1314,6 +1370,7 @@
     if (next === "referrals") await loadReferrals();
     if (next === "matches") await loadMatches();
     if (next === "missions") await loadMissions();
+    if (next === "mysterybox") await loadMysteryBox();
     if (next === "social") await loadSocialChannels();
   }
 
@@ -1456,6 +1513,65 @@
     const res = await withAccess((token) => listSocialChannels(token, { limit: 100 }));
     socialChannels = res.items;
     socialChannelsTotal = res.total;
+  }
+
+  async function loadMysteryBox() {
+    const [allocationRes, ticketRes] = await Promise.all([
+      withAccess((token) => getMysteryBoxAllocations(token)),
+      withAccess((token) =>
+        listMysteryBoxTicketUsers(token, {
+          q: mysteryTicketQ || undefined,
+          limit: 100
+        })
+      )
+    ]);
+    mysteryConfig = allocationRes.value ?? defaultMysteryBoxAllocationConfig();
+    mysteryTicketUsers = ticketRes.items;
+    mysteryTicketsTotal = ticketRes.total;
+    mysteryTicketsSum = ticketRes.totalTickets;
+  }
+
+  async function saveMysteryBoxConfig() {
+    loading = true;
+    error = "";
+    try {
+      await withAccess((token) => updateMysteryBoxAllocations(token, mysteryConfig));
+      showToast("Mystery Box allocation saved");
+      await loadMysteryBox();
+    } catch (e) {
+      error = (e as Error).message;
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function adjustMysteryTickets() {
+    if (!mysterySelectedUserId) {
+      error = "Please select a user";
+      return;
+    }
+    if (!Number.isFinite(Number(mysteryTicketDelta)) || Number(mysteryTicketDelta) === 0) {
+      error = "Ticket delta must be non-zero";
+      return;
+    }
+    loading = true;
+    error = "";
+    try {
+      await withAccess((token) =>
+        adjustMysteryBoxTickets(token, {
+          userId: mysterySelectedUserId,
+          delta: Math.trunc(Number(mysteryTicketDelta)),
+          reason: mysteryTicketReason.trim() || "Manual mystery ticket adjustment"
+        })
+      );
+      showToast("Mystery ticket updated");
+      await loadMysteryBox();
+      await loadUsersAndLedger();
+    } catch (e) {
+      error = (e as Error).message;
+    } finally {
+      loading = false;
+    }
   }
 
   async function submitSocialChannel() {
@@ -1912,6 +2028,14 @@
     referralFlagged = [];
     matchesData = [];
     missionsData = [];
+    mysteryConfig = defaultMysteryBoxAllocationConfig();
+    mysteryTicketUsers = [];
+    mysteryTicketsTotal = 0;
+    mysteryTicketsSum = 0;
+    mysteryTicketQ = "";
+    mysterySelectedUserId = "";
+    mysteryTicketDelta = 1;
+    mysteryTicketReason = "Manual mystery ticket adjustment";
     socialChannels = [];
     socialChannelsTotal = 0;
     resetSocialChannelForm();
@@ -2678,11 +2802,157 @@
 
       {#if page === "mysterybox"}
         <div class="pg active" id="pg-mysterybox">
-          <div class="grid-4">
-            <div class="mb-tier"><div class="mb-tier-icon">🎁</div><div class="mb-tier-name">Rising</div><div class="muted-line">25,000 KICK</div></div>
-            <div class="mb-tier"><div class="mb-tier-icon">🎁</div><div class="mb-tier-name">Elite</div><div class="muted-line">100,000 KICK</div></div>
-            <div class="mb-tier"><div class="mb-tier-icon">🎁</div><div class="mb-tier-name">Legacy</div><div class="muted-line">250,000 KICK</div></div>
-            <div class="mb-tier"><div class="mb-tier-icon">🎁</div><div class="mb-tier-name">Vanguard</div><div class="muted-line">1,000,000 KICK</div></div>
+          <div class="section">
+            <div class="sec-hdr">
+              <div class="sec-title"><div class="sec-dot y"></div>Airdrop Box Allocation</div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <span class="tag tag-b">TOTAL TIERS {mysteryConfig.allocations.length}</span>
+                <button class="btn btn-ghost btn-sm" on:click={loadMysteryBox}>REFRESH</button>
+                <button class="btn btn-g btn-sm" on:click={saveMysteryBoxConfig}>SAVE ALLOCATION</button>
+              </div>
+            </div>
+            <div class="sec-body" style="display:grid;gap:10px">
+              <div class="grid-4">
+                {#each mysteryConfig.allocations as row, idx}
+                  <div class="mb-tier" style="text-align:left">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                      <div class="mb-tier-name" style="font-size:16px;margin:0">{tierLabel(row.tier)}</div>
+                      <label class="toggle">
+                        <input
+                          type="checkbox"
+                          checked={row.isActive}
+                          on:change={(event) => patchMysteryAllocation(idx, { isActive: Boolean(event.currentTarget && event.currentTarget.checked) })}
+                        />
+                        <span class="toggle-slider"></span>
+                      </label>
+                    </div>
+                    <div style="display:grid;gap:8px">
+                      <div class="form-g" style="margin:0">
+                        <label>Total Boxes</label>
+                        <input
+                          class="inp"
+                          type="number"
+                          min="0"
+                          value={row.totalBoxes}
+                          on:input={(event) => patchMysteryAllocation(idx, { totalBoxes: toSafeInt(event.currentTarget && event.currentTarget.value, 0) })}
+                        />
+                      </div>
+                      <div class="form-g" style="margin:0">
+                        <label>Min KICK</label>
+                        <input
+                          class="inp"
+                          type="number"
+                          min="0"
+                          value={row.minKick}
+                          on:input={(event) => patchMysteryAllocation(idx, { minKick: toSafeInt(event.currentTarget && event.currentTarget.value, 0) })}
+                        />
+                      </div>
+                      <div class="form-g" style="margin:0">
+                        <label>Max Per User</label>
+                        <input
+                          class="inp"
+                          type="number"
+                          min="1"
+                          value={row.maxPerUser}
+                          on:input={(event) => patchMysteryAllocation(idx, { maxPerUser: Math.max(1, toSafeInt(event.currentTarget && event.currentTarget.value, 1)) })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                {/each}
+              </div>
+
+              <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:center">
+                <div class="form-g" style="margin:0">
+                  <label>Required Active Days</label>
+                  <input
+                    class="inp"
+                    type="number"
+                    min="0"
+                    value={mysteryConfig.requireActiveDays}
+                    on:input={(event) =>
+                      (mysteryConfig = {
+                        ...mysteryConfig,
+                        requireActiveDays: Math.max(0, toSafeInt(event.currentTarget && event.currentTarget.value, 0))
+                      })}
+                  />
+                </div>
+                <div class="form-g" style="margin:0">
+                  <label>Snapshot Time (optional)</label>
+                  <input
+                    class="inp"
+                    type="datetime-local"
+                    value={mysterySnapshotInputValue()}
+                    on:input={(event) => setMysterySnapshot((event.currentTarget && event.currentTarget.value) || "")}
+                  />
+                </div>
+                <div style="display:flex;align-items:center;justify-content:flex-start;gap:8px;padding-top:10px">
+                  <span style="font-size:11px;color:var(--text2)">Require Sybil Check</span>
+                  <label class="toggle">
+                    <input
+                      type="checkbox"
+                      checked={mysteryConfig.requireSybilPass}
+                      on:change={(event) =>
+                        (mysteryConfig = {
+                          ...mysteryConfig,
+                          requireSybilPass: Boolean(event.currentTarget && event.currentTarget.checked)
+                        })}
+                    />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="sec-hdr">
+              <div class="sec-title"><div class="sec-dot b"></div>Users With Mystery Tickets ({mysteryTicketsTotal})</div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <span class="tag tag-g">TOTAL TICKETS {mysteryTicketsSum}</span>
+                <input class="inp" style="width:260px" placeholder="Search user / TG ID..." bind:value={mysteryTicketQ} />
+                <button class="btn btn-ghost btn-sm" on:click={loadMysteryBox}>FILTER</button>
+              </div>
+            </div>
+            <div class="sec-body" style="padding:0">
+              <table class="tbl">
+                <thead>
+                  <tr><th>User</th><th>TG ID</th><th>Nation</th><th>KICK</th><th>Tickets</th><th>Eligible Tier</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                  {#if mysteryTicketUsers.length === 0}
+                    <tr><td colspan="7" style="color:var(--text3)">No user has mystery ticket yet.</td></tr>
+                  {:else}
+                    {#each mysteryTicketUsers as user}
+                      <tr>
+                        <td>@{user.username ?? "unknown"}</td>
+                        <td>{user.telegramId ?? "-"}</td>
+                        <td>{user.nationCode}</td>
+                        <td>{user.kick.toLocaleString()}</td>
+                        <td>{user.mysteryTickets}</td>
+                        <td>{user.eligibleTier ? tierLabel(user.eligibleTier) : "-"}</td>
+                        <td><span class={`tag ${statusTag(user.status)}`}>{user.status.toUpperCase()}</span></td>
+                      </tr>
+                    {/each}
+                  {/if}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="sec-hdr"><div class="sec-title"><div class="sec-dot"></div>Adjust User Ticket</div></div>
+            <div class="sec-body" style="display:grid;grid-template-columns:2fr 120px 2fr auto;gap:8px;align-items:center">
+              <select class="inp" bind:value={mysterySelectedUserId}>
+                <option value="">Select user</option>
+                {#each users as u}
+                  <option value={u.id}>@{u.username ?? "unknown"} · {u.telegramId ?? "no-tg"} · KICK {u.kick.toLocaleString()}</option>
+                {/each}
+              </select>
+              <input class="inp" type="number" bind:value={mysteryTicketDelta} />
+              <input class="inp" placeholder="Reason" bind:value={mysteryTicketReason} />
+              <button class="btn btn-g btn-sm" on:click={adjustMysteryTickets}>APPLY</button>
+            </div>
           </div>
         </div>
       {/if}

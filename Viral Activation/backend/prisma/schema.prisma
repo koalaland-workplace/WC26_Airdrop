@@ -59,6 +59,7 @@ model AppUser {
   nationCode       String           @default("VN")
   status           UserStatus       @default(active)
   kick             Int              @default(0)
+  mysteryTickets   Int              @default(0)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   ledgers          KickLedger[]
