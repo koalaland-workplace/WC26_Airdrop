@@ -414,6 +414,11 @@ export const appGameRoutes: FastifyPluginAsync = async (app) => {
   app.get("/api/earn/tasks/catalog", async () => {
     const [missions, channels] = await Promise.all([
       app.prisma.mission.findMany({
+        where: {
+          channelId: {
+            not: null
+          }
+        },
         include: {
           channel: {
             select: {
@@ -537,6 +542,11 @@ export const appGameRoutes: FastifyPluginAsync = async (app) => {
     if (!mission) {
       return reply.status(404).send({ ok: false, error: "task_not_found", message: "Task not found." });
     }
+    if (!mission.channelId || !mission.channel) {
+      return reply
+        .status(409)
+        .send({ ok: false, error: "task_unmapped", message: "Task chưa được map channel trong Admin." });
+    }
     if (!mission.isActive) {
       return reply
         .status(409)
@@ -598,6 +608,11 @@ export const appGameRoutes: FastifyPluginAsync = async (app) => {
       return reply
         .status(409)
         .send({ ok: false, error: "inactive_task", message: "Task is inactive and cannot be completed." });
+    }
+    if (mission && (!mission.channelId || !mission.channel)) {
+      return reply
+        .status(409)
+        .send({ ok: false, error: "task_unmapped", message: "Task chưa được map channel trong Admin." });
     }
     if (mission?.channel && !mission.channel.isActive) {
       return reply.status(409).send({
