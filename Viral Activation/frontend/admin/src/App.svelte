@@ -81,6 +81,7 @@
     | "matches"
     | "missions"
     | "announce"
+    | "rules"
     | "rewards"
     | "mysterybox"
     | "wc26token"
@@ -103,6 +104,7 @@
     matches: "MATCH MANAGER",
     missions: "MISSION CONTROL",
     announce: "ANNOUNCEMENTS",
+    rules: "GAME RULES",
     rewards: "REWARD TRANSACTIONS",
     mysterybox: "MYSTERY BOX",
     wc26token: "WC26 TOKEN",
@@ -126,6 +128,7 @@
     matches: "WC26 NFT FANTASY · MATCH OPS",
     missions: "WC26 NFT FANTASY · MISSION OPS",
     announce: "WC26 NFT FANTASY · ANNOUNCEMENTS",
+    rules: "WC26 NFT FANTASY · GAME RULEBOOK",
     rewards: "WC26 NFT FANTASY · REWARD LEDGER",
     mysterybox: "WC26 NFT FANTASY · TICKET SYSTEM",
     wc26token: "WC26 NFT FANTASY · TOKEN ECONOMY",
@@ -154,6 +157,7 @@
         { id: "referrals", icon: "🔗", label: "Referrals" },
         { id: "matches", icon: "⚽", label: "Matches" },
         { id: "missions", icon: "🎯", label: "Missions" },
+        { id: "rules", icon: "📋", label: "Game Rules" },
         { id: "announce", icon: "📣", label: "Announcements" }
       ]
     },
@@ -230,6 +234,7 @@
     if (p === "dashboard" || p === "leaderboard" || p === "matches") return "dashboard.read";
     if (p === "users") return "users.manage";
     if (p === "announce") return "announcements.manage";
+    if (p === "rules") return "announcements.manage";
     if (p === "spin") return "config.spin";
     if (p === "penalty") return "config.penalty";
     if (p === "settings") return "settings.manage";
@@ -248,6 +253,164 @@
     const role = get(session).role;
     if (!role) return false;
     return rolePerms[role].has(perm);
+  }
+
+  const RULE_LANGUAGE_OPTIONS = ["en", "es", "pt", "kr", "jp"] as const;
+  type RuleLanguageCode = (typeof RULE_LANGUAGE_OPTIONS)[number];
+
+  type RuleContentEntry = {
+    title: string;
+    content: string;
+    updatedAt: string | null;
+  };
+
+  const DEFAULT_RULE_TITLE = "📋 Game Rules & Airdrop Overview";
+  const DEFAULT_RULE_CONTENT = [
+    "## 1. Token Framework & Pools",
+    "- **KICK** is an off-chain participation point used for ranking and eligibility.",
+    "- **WC26** is the on-chain token allocated by official conversion events.",
+    "- Mini Games Conversion Pool remains fixed at 10,000,000 WC26 in current policy.",
+    "",
+    "## 2. Eligibility Snapshot Basics",
+    "- At least 10,000 KICK.",
+    "- At least 7 active days.",
+    "- Pass Anti-Sybil and compliance checks.",
+    "",
+    "Full legal rulebook and governance updates remain in Admin-managed announcement flows."
+  ].join("\n");
+
+  function isRuleLanguageCode(value: string): value is RuleLanguageCode {
+    return value === "en" || value === "es" || value === "pt" || value === "kr" || value === "jp";
+  }
+
+  function normalizeRuleLanguage(value: string | null | undefined): RuleLanguageCode {
+    const normalized = String(value ?? "")
+      .trim()
+      .toLowerCase();
+    return isRuleLanguageCode(normalized) ? normalized : "en";
+  }
+
+  function emptyRuleContentEntry(): RuleContentEntry {
+    return {
+      title: "",
+      content: "",
+      updatedAt: null
+    };
+  }
+
+  function defaultRuleEntries(): Record<RuleLanguageCode, RuleContentEntry> {
+    return {
+      en: {
+        title: DEFAULT_RULE_TITLE,
+        content: DEFAULT_RULE_CONTENT,
+        updatedAt: null
+      },
+      es: emptyRuleContentEntry(),
+      pt: emptyRuleContentEntry(),
+      kr: emptyRuleContentEntry(),
+      jp: emptyRuleContentEntry()
+    };
+  }
+
+  function escapeHtml(value: string): string {
+    return value
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  function sanitizeLink(url: string): string {
+    const trimmed = url.trim();
+    if (/^(https?:\/\/|mailto:)/i.test(trimmed)) return trimmed;
+    return "#";
+  }
+
+  function formatInlineMarkdown(input: string): string {
+    let output = escapeHtml(input);
+    output = output.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, label: string, href: string) => {
+      const safeHref = escapeHtml(sanitizeLink(href));
+      return `<a href="${safeHref}" target="_blank" rel="noreferrer">${label}</a>`;
+    });
+    output = output.replace(/`([^`]+?)`/g, "<code>$1</code>");
+    output = output.replace(/\*\*([^*]+?)\*\*/g, "<strong>$1</strong>");
+    output = output.replace(/\*([^*]+?)\*/g, "<em>$1</em>");
+    return output;
+  }
+
+  function renderMarkdownToHtml(markdown: string): string {
+    const lines = markdown.replaceAll("\r\n", "\n").split("\n");
+    const html: string[] = [];
+    let inUl = false;
+    let inOl = false;
+
+    const closeLists = (): void => {
+      if (inUl) {
+        html.push("</ul>");
+        inUl = false;
+      }
+      if (inOl) {
+        html.push("</ol>");
+        inOl = false;
+      }
+    };
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line) {
+        closeLists();
+        continue;
+      }
+
+      const bulletMatch = line.match(/^[-*]\s+(.*)$/);
+      if (bulletMatch) {
+        if (inOl) {
+          html.push("</ol>");
+          inOl = false;
+        }
+        if (!inUl) {
+          html.push("<ul>");
+          inUl = true;
+        }
+        html.push(`<li>${formatInlineMarkdown(bulletMatch[1])}</li>`);
+        continue;
+      }
+
+      const orderedMatch = line.match(/^\d+\.\s+(.*)$/);
+      if (orderedMatch) {
+        if (inUl) {
+          html.push("</ul>");
+          inUl = false;
+        }
+        if (!inOl) {
+          html.push("<ol>");
+          inOl = true;
+        }
+        html.push(`<li>${formatInlineMarkdown(orderedMatch[1])}</li>`);
+        continue;
+      }
+
+      closeLists();
+
+      if (line.startsWith("### ")) {
+        html.push(`<h3>${formatInlineMarkdown(line.slice(4))}</h3>`);
+        continue;
+      }
+      if (line.startsWith("## ")) {
+        html.push(`<h2>${formatInlineMarkdown(line.slice(3))}</h2>`);
+        continue;
+      }
+      if (line.startsWith("# ")) {
+        html.push(`<h1>${formatInlineMarkdown(line.slice(2))}</h1>`);
+        continue;
+      }
+
+      html.push(`<p>${formatInlineMarkdown(line)}</p>`);
+    }
+
+    closeLists();
+    return html.join("");
   }
 
   type FootballNewsApiForm = {
@@ -408,6 +571,33 @@
     if (typeof value === "number" && Number.isFinite(value)) return String(Math.trunc(value));
     if (typeof value === "string" && value.trim()) return value.trim();
     return String(fallback);
+  }
+
+  function normalizeRuleEntry(value: unknown): RuleContentEntry {
+    const node = asRecord(value);
+    const title = asString(node.title, "").trim().slice(0, 200);
+    const content = asString(node.content, "").trim().slice(0, 20_000);
+    const updatedAt = asString(node.updatedAt, "").trim() || null;
+    return {
+      title,
+      content,
+      updatedAt
+    };
+  }
+
+  function mergeRuleEntries(value: unknown): Record<RuleLanguageCode, RuleContentEntry> {
+    const defaults = defaultRuleEntries();
+    const rawEntries = asRecord(asRecord(value).entries);
+    const nextEntries: Record<RuleLanguageCode, RuleContentEntry> = {
+      ...defaults
+    };
+
+    for (const language of RULE_LANGUAGE_OPTIONS) {
+      const parsed = normalizeRuleEntry(rawEntries[language]);
+      if (!parsed.title && !parsed.content) continue;
+      nextEntries[language] = parsed;
+    }
+    return nextEntries;
   }
 
   function parseFootballNewsApiForm(config: Record<string, unknown>): FootballNewsApiForm {
@@ -706,6 +896,13 @@
   let annTitle = "";
   let annMessage = "";
   let annTarget = "all";
+  let rulesDefaultLanguage: RuleLanguageCode = "en";
+  let rulesEditorLanguage: RuleLanguageCode = "en";
+  let rulesEntries: Record<RuleLanguageCode, RuleContentEntry> = defaultRuleEntries();
+  let rulesEditorEntry: RuleContentEntry = rulesEntries.en;
+  let rulesPreviewHtml = renderMarkdownToHtml(rulesEditorEntry.content);
+  $: rulesEditorEntry = rulesEntries[rulesEditorLanguage];
+  $: rulesPreviewHtml = renderMarkdownToHtml(rulesEditorEntry.content);
 
   let piqueLogs: PiqueConversation[] = [];
   let piqueTotal = 0;
@@ -1422,7 +1619,9 @@
     if (can("users.manage")) tasks.push(loadUsersAndLedger());
     if (can("config.spin") || can("config.penalty")) tasks.push(loadConfigs());
     if (can("api.manage")) tasks.push(loadApiConfig());
-    if (can("announcements.manage")) tasks.push(loadAnnouncements());
+    if (can("announcements.manage")) {
+      tasks.push(loadAnnouncements(), loadRulesConfig());
+    }
     if (can("pique.logs.read")) tasks.push(loadPique());
     if (can("board.manage")) tasks.push(loadBoard());
     if (can("reports.read")) tasks.push(loadAuditLogs());
@@ -1456,6 +1655,7 @@
     if (next === "rewards") await loadAuditLogs();
     if (next === "spin" || next === "penalty") await loadConfigs();
     if (next === "announce") await loadAnnouncements();
+    if (next === "rules") await loadRulesConfig();
     if (next === "pique") await loadPique();
     if (next === "board") await loadBoard();
     if (next === "referrals") await loadReferrals();
@@ -1557,6 +1757,97 @@
 
   async function loadAnnouncements() {
     announcements = await withAccess((token) => listAnnouncements(token));
+  }
+
+  function applyRulesConfig(value: unknown): void {
+    const root = asRecord(value);
+    rulesEntries = mergeRuleEntries(root);
+    rulesDefaultLanguage = normalizeRuleLanguage(asString(root.defaultLanguage, "en"));
+    rulesEditorLanguage = normalizeRuleLanguage(rulesEditorLanguage);
+  }
+
+  async function loadRulesConfig() {
+    const config = await withAccess((token) => getConfig(token, "rules"));
+    applyRulesConfig(config.value);
+  }
+
+  function updateRulesTitle(value: string): void {
+    const current = rulesEntries[rulesEditorLanguage];
+    rulesEntries = {
+      ...rulesEntries,
+      [rulesEditorLanguage]: {
+        ...current,
+        title: value
+      }
+    };
+  }
+
+  function updateRulesContent(value: string): void {
+    const current = rulesEntries[rulesEditorLanguage];
+    rulesEntries = {
+      ...rulesEntries,
+      [rulesEditorLanguage]: {
+        ...current,
+        content: value
+      }
+    };
+  }
+
+  function handleRulesTitleInput(event: Event): void {
+    const target = event.currentTarget;
+    if (!(target instanceof HTMLInputElement)) return;
+    updateRulesTitle(target.value);
+  }
+
+  function handleRulesContentInput(event: Event): void {
+    const target = event.currentTarget;
+    if (!(target instanceof HTMLTextAreaElement)) return;
+    updateRulesContent(target.value);
+  }
+
+  async function saveRulesConfig() {
+    const payloadEntries: Record<string, RuleContentEntry> = {};
+    const now = new Date().toISOString();
+
+    for (const language of RULE_LANGUAGE_OPTIONS) {
+      const entry = rulesEntries[language];
+      const title = entry.title.trim().slice(0, 200);
+      const content = entry.content.trim().slice(0, 20_000);
+      if (!title && !content) continue;
+      payloadEntries[language] = {
+        title,
+        content,
+        updatedAt: now
+      };
+    }
+
+    if (Object.keys(payloadEntries).length === 0) {
+      error = "Please provide at least one language rule content";
+      return;
+    }
+
+    const defaultEntry = payloadEntries[rulesDefaultLanguage];
+    if (!defaultEntry || defaultEntry.content.trim().length === 0) {
+      error = `Default language (${rulesDefaultLanguage.toUpperCase()}) must have content`;
+      return;
+    }
+
+    loading = true;
+    error = "";
+    try {
+      const updated = await withAccess((token) =>
+        updateConfig(token, "rules", {
+          defaultLanguage: rulesDefaultLanguage,
+          entries: payloadEntries
+        })
+      );
+      applyRulesConfig(updated.value);
+      showToast("Rules content saved");
+    } catch (e) {
+      error = (e as Error).message;
+    } finally {
+      loading = false;
+    }
   }
 
   async function loadPique() {
@@ -2146,6 +2437,9 @@
     leaderboardNations = [];
     auditLogs = [];
     announcements = [];
+    rulesDefaultLanguage = "en";
+    rulesEditorLanguage = "en";
+    rulesEntries = defaultRuleEntries();
     piqueLogs = [];
     boardMembers = [];
     referralChains = [];
@@ -2859,6 +3153,81 @@
               </div>
             </div>
           {/if}
+        </div>
+      {/if}
+
+      {#if page === "rules"}
+        <div class="pg active" id="pg-rules">
+          <div class="section">
+            <div class="sec-hdr"><div class="sec-title"><div class="sec-dot y"></div>Game Rules · Multilingual</div></div>
+            <div class="sec-body" style="display:grid;gap:10px">
+              <div style="display:grid;grid-template-columns:220px 220px auto;gap:8px;align-items:end">
+                <div class="form-g" style="margin:0">
+                  <label for="rules-default-language">Default Language</label>
+                  <select id="rules-default-language" class="inp" bind:value={rulesDefaultLanguage}>
+                    {#each RULE_LANGUAGE_OPTIONS as language}
+                      <option value={language}>{language.toUpperCase()}</option>
+                    {/each}
+                  </select>
+                </div>
+                <div class="form-g" style="margin:0">
+                  <label for="rules-editor-language">Editing Language</label>
+                  <select id="rules-editor-language" class="inp" bind:value={rulesEditorLanguage}>
+                    {#each RULE_LANGUAGE_OPTIONS as language}
+                      <option value={language}>{language.toUpperCase()}</option>
+                    {/each}
+                  </select>
+                </div>
+                <div style="display:flex;justify-content:flex-end">
+                  <button class="btn btn-g" on:click={saveRulesConfig}>SAVE GAME RULES</button>
+                </div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div style="display:grid;gap:8px">
+                  <input
+                    class="inp"
+                    placeholder="Rules title"
+                    value={rulesEditorEntry.title}
+                    on:input={handleRulesTitleInput}
+                  />
+                  <textarea
+                    class="inp rules-editor"
+                    rows="14"
+                    placeholder="Use Markdown format (#, ##, -, **bold**, *italic*, [link](https://...))"
+                    value={rulesEditorEntry.content}
+                    on:input={handleRulesContentInput}
+                  ></textarea>
+                  <div style="font-size:11px;color:var(--text3)">
+                    Supports markdown format and will render at Users frontend Rules tab by selected language.
+                  </div>
+                </div>
+
+                <div class="rules-preview-wrap">
+                  <div class="rules-preview-head">Preview · {rulesEditorLanguage.toUpperCase()}</div>
+                  <div class="rules-preview-body">
+                    {#if rulesEditorEntry.title.trim()}
+                      <h2>{rulesEditorEntry.title.trim()}</h2>
+                    {/if}
+                    {@html rulesPreviewHtml}
+                  </div>
+                  {#if rulesEditorEntry.updatedAt}
+                    <div class="rules-preview-updated">
+                      Last saved: {new Date(rulesEditorEntry.updatedAt).toLocaleString()}
+                    </div>
+                  {/if}
+                </div>
+              </div>
+
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                {#each RULE_LANGUAGE_OPTIONS as language}
+                  <span class={`tag ${rulesEntries[language].content.trim() ? "tag-g" : "tag-y"}`}>
+                    {language.toUpperCase()} · {rulesEntries[language].content.trim() ? "READY" : "EMPTY"}
+                  </span>
+                {/each}
+              </div>
+            </div>
+          </div>
         </div>
       {/if}
 

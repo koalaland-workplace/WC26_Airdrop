@@ -1337,6 +1337,60 @@ a {
   margin-top: 8px;
 }
 
+.rules-markdown {
+  font-size: 9.5px;
+  color: var(--gr);
+  line-height: 1.55;
+}
+
+.rules-markdown h1,
+.rules-markdown h2,
+.rules-markdown h3 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--pw);
+  margin: 0 0 6px;
+}
+
+.rules-markdown h1 {
+  font-size: 12px;
+}
+
+.rules-markdown h2 {
+  font-size: 10px;
+}
+
+.rules-markdown h3 {
+  font-size: 9.8px;
+}
+
+.rules-markdown p {
+  margin: 0 0 6px;
+}
+
+.rules-markdown ul,
+.rules-markdown ol {
+  margin: 4px 0 6px 14px;
+  padding: 0;
+}
+
+.rules-markdown li {
+  margin: 3px 0;
+}
+
+.rules-markdown a {
+  color: var(--c-cyan);
+  text-decoration: underline;
+}
+
+.rules-markdown code {
+  font-family: var(--font-mono);
+  font-size: 8.8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
 .ai-bot-box {
   padding: 2px;
 }

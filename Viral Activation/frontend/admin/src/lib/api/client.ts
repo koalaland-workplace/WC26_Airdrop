@@ -273,7 +273,10 @@ export interface FeatureConfig {
   updatedAt?: string;
 }
 
-export async function getConfig(accessToken: string, key: "spin" | "penalty" | "missions" | "settings" | "api") {
+export async function getConfig(
+  accessToken: string,
+  key: "spin" | "penalty" | "missions" | "settings" | "api" | "rules"
+) {
   return request<FeatureConfig>(`/api/v1/config/${key}`, {
     headers: authedHeaders(accessToken)
   });
@@ -281,7 +284,7 @@ export async function getConfig(accessToken: string, key: "spin" | "penalty" | "
 
 export async function updateConfig(
   accessToken: string,
-  key: "spin" | "penalty" | "missions" | "settings" | "api",
+  key: "spin" | "penalty" | "missions" | "settings" | "api" | "rules",
   value: Record<string, unknown>
 ) {
   return request<FeatureConfig>(`/api/v1/config/${key}`, {

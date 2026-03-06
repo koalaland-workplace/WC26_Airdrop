@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import type { AppPage, InfoTab } from "../stores/ui.store";
   import {
     MATCH_GROUP_FILTERS,
@@ -7,9 +8,14 @@
     MATCH_KNOCKOUT_ROUNDS
   } from "../modules/match/data";
   import { hotSignalsStore } from "../stores/hot-signals.store";
+  import { languageStore } from "../stores/language.store";
   import { updatedLabel } from "../modules/news/utils";
   import HotSignalsFeed from "../components/HotSignalsFeed.svelte";
   import { PIQUE_PRESETS, resolvePiqueReply } from "../modules/info/pique";
+  import { fetchAppRules } from "../modules/rules/api";
+  import { renderMarkdownToHtml } from "../modules/rules/markdown";
+  import type { AppRulesResponse } from "../modules/rules/types";
+  import type { AppLanguageCode } from "../modules/i18n/types";
 
   export let activeTab: InfoTab = "match";
   export let onChangeTab: (tab: InfoTab) => void = () => {};
@@ -23,10 +29,34 @@
   ];
 
   const ALL_MATCH_FILTER = "ALL";
+  const DEFAULT_RULES_TITLE = "📋 Game Rules & Airdrop Overview";
+  const DEFAULT_RULES_CONTENT = [
+    "## 1. Token Framework & Pools",
+    "- **KICK** is an off-chain participation point used for ranking and eligibility.",
+    "- **WC26** is the on-chain token allocated by official conversion events.",
+    "- Mini Games Conversion Pool remains fixed at 10,000,000 WC26 in current policy.",
+    "",
+    "## 2. Eligibility Snapshot Basics",
+    "- At least 10,000 KICK.",
+    "- At least 7 active days.",
+    "- Pass Anti-Sybil and compliance checks.",
+    "",
+    "Full legal rulebook and governance updates remain in Admin-managed announcement flows."
+  ].join("\n");
 
   let selectedMatchFilter = ALL_MATCH_FILTER;
   let aiInput = "";
   let aiReply = resolvePiqueReply("");
+  let rulesTitle = DEFAULT_RULES_TITLE;
+  let rulesContent = DEFAULT_RULES_CONTENT;
+  let rulesHtml = renderMarkdownToHtml(DEFAULT_RULES_CONTENT);
+  let rulesUpdatedAt: string | null = null;
+  let rulesLoading = false;
+  let rulesError = "";
+  let rulesLanguage = "en";
+  let rulesFallbackLanguage: string | null = null;
+  let rulesRequestId = 0;
+  const rulesCache = new Map<string, AppRulesResponse>();
 
   $: isKnockoutFilter = selectedMatchFilter.startsWith("KO:");
   $: selectedGroupCode = selectedMatchFilter.startsWith("GROUP:")
@@ -52,10 +82,66 @@
     void hotSignalsStore.refresh(5);
   }
 
+  $: if (activeTab === "rules") {
+    void loadRulesForLanguage($languageStore.current);
+  }
+
   $: pulseUpdatedText = updatedLabel($hotSignalsStore.lastUpdatedAt);
+  $: rulesHtml = renderMarkdownToHtml(rulesContent);
+
+  onMount(() => {
+    if (activeTab === "rules") {
+      void loadRulesForLanguage($languageStore.current);
+    }
+  });
 
   function sendAi(input: string): void {
     aiReply = resolvePiqueReply(input);
+  }
+
+  function applyRulesPayload(payload: AppRulesResponse): void {
+    const nextTitle = payload.title.trim();
+    const nextContent = payload.content.trim();
+    rulesTitle = nextTitle || DEFAULT_RULES_TITLE;
+    rulesContent = nextContent || DEFAULT_RULES_CONTENT;
+    rulesUpdatedAt = payload.updatedAt;
+    rulesLanguage = payload.language || "en";
+    rulesFallbackLanguage = payload.fallbackLanguage;
+  }
+
+  function toRulesErrorMessage(error: unknown): string {
+    if (error instanceof Error && error.message.trim().length > 0) {
+      return error.message;
+    }
+    return "Failed to load latest rules.";
+  }
+
+  async function loadRulesForLanguage(language: AppLanguageCode): Promise<void> {
+    const normalized = String(language).trim().toLowerCase() || "en";
+    const cached = rulesCache.get(normalized);
+    if (cached) {
+      applyRulesPayload(cached);
+      rulesError = "";
+      return;
+    }
+
+    const requestId = ++rulesRequestId;
+    rulesLoading = true;
+    rulesError = "";
+
+    try {
+      const payload = await fetchAppRules(normalized);
+      rulesCache.set(normalized, payload);
+      if (requestId !== rulesRequestId) return;
+      applyRulesPayload(payload);
+    } catch (error) {
+      if (requestId !== rulesRequestId) return;
+      rulesError = toRulesErrorMessage(error);
+    } finally {
+      if (requestId === rulesRequestId) {
+        rulesLoading = false;
+      }
+    }
   }
 </script>
 
@@ -191,23 +277,21 @@
 
   {#if activeTab === "rules"}
     <div class="card acc-y info-sec info-section">
-      <div class="info-head">📋 Game Rules & Airdrop Overview</div>
+      <div class="info-head">{rulesTitle}</div>
       <div class="rules-doc info-rules-wrap">
-        <div class="rules-h">1. Token Framework & Pools</div>
-        <ul class="rules-list">
-          <li><strong>KICK</strong> is an off-chain participation point used for ranking and eligibility.</li>
-          <li><strong>WC26</strong> is the on-chain token allocated by official conversion events.</li>
-          <li>Mini Games Conversion Pool remains fixed at 10,000,000 WC26 in current policy.</li>
-        </ul>
-
-        <div class="rules-h" style="margin-top:8px">2. Eligibility Snapshot Basics</div>
-        <ul class="rules-list">
-          <li>At least 10,000 KICK.</li>
-          <li>At least 7 active days.</li>
-          <li>Pass Anti-Sybil and compliance checks.</li>
-        </ul>
-
-        <div class="rules-note">Full legal rulebook and governance updates remain in Admin-managed announcement flows.</div>
+        {#if rulesLoading}
+          <div class="rules-note">Loading latest rules...</div>
+        {/if}
+        {#if rulesError}
+          <div class="rules-note">{rulesError}</div>
+        {/if}
+        <div class="rules-markdown">{@html rulesHtml}</div>
+        {#if rulesFallbackLanguage}
+          <div class="rules-note">Language fallback: {rulesLanguage.toUpperCase()}</div>
+        {/if}
+        {#if rulesUpdatedAt}
+          <div class="rules-note">Updated: {new Date(rulesUpdatedAt).toLocaleString()}</div>
+        {/if}
       </div>
       <button class="btn b-y" type="button" style="margin-top:8px" on:click={() => onNavigate("earn")}>OPEN EARN →</button>
     </div>
