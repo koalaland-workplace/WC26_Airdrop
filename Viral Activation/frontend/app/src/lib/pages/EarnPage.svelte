@@ -150,13 +150,26 @@
       <div class="info-head">📡 Official Channels</div>
       <div class="info-list">
         {#each $earnStore.channels as channel}
-          <a class="earn-channel-item" href={channel.url} target="_blank" rel="noreferrer">
-            <div class="earn-channel-left">
-              <span class="earn-channel-icon">{channel.icon}</span>
-              <span class="earn-channel-name">{channel.name}</span>
+          {#if channel.isActive === false}
+            <div class="earn-channel-item inactive" aria-disabled="true">
+              <div class="earn-channel-left">
+                <span class="earn-channel-icon">{channel.icon}</span>
+                <span class="earn-channel-name">{channel.name}</span>
+              </div>
+              <div class="earn-channel-right">
+                <span class="earn-channel-platform">{channel.platform}</span>
+                <span class="earn-channel-status">INACTIVE</span>
+              </div>
             </div>
-            <span class="earn-channel-platform">{channel.platform}</span>
-          </a>
+          {:else}
+            <a class="earn-channel-item" href={channel.url} target="_blank" rel="noreferrer">
+              <div class="earn-channel-left">
+                <span class="earn-channel-icon">{channel.icon}</span>
+                <span class="earn-channel-name">{channel.name}</span>
+              </div>
+              <span class="earn-channel-platform">{channel.platform}</span>
+            </a>
+          {/if}
         {/each}
       </div>
     </div>

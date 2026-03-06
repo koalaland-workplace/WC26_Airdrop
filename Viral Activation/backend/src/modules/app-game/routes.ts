@@ -387,8 +387,7 @@ export const appGameRoutes: FastifyPluginAsync = async (app) => {
         orderBy: [{ isActive: "desc" }, { category: "asc" }, { rewardKick: "desc" }, { createdAt: "asc" }]
       }),
       app.prisma.socialChannel.findMany({
-        where: { isActive: true },
-        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+        orderBy: [{ isActive: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }]
       })
     ]);
 
@@ -459,7 +458,8 @@ export const appGameRoutes: FastifyPluginAsync = async (app) => {
         url: channel.url,
         icon: channel.icon ?? "🔗",
         tasks: channel.tasks,
-        kick: channel.kick
+        kick: channel.kick,
+        isActive: channel.isActive
       }))
     };
   });

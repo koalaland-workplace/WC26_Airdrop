@@ -1,6 +1,6 @@
 import { get, writable } from "svelte/store";
 import { claimEarnTask, fetchEarnCatalog, fetchEarnState, verifyEarnTask } from "../modules/earn/api";
-import { EARN_TASK_CAP, EARN_TASK_CATEGORIES, EARN_TASKS } from "../modules/earn/data";
+import { EARN_TASK_CAP } from "../modules/earn/data";
 import { activateReferralBoost, fetchReferralState } from "../modules/referral/api";
 import type { EarnChannelItem, EarnClaimResult, EarnTask, EarnTaskCategory } from "../modules/earn/types";
 import type { ReferralState } from "../modules/referral/types";
@@ -33,8 +33,8 @@ const DEFAULT_REFERRAL_STATE: ReferralState = {
 const initialState: EarnState = {
   status: "idle",
   taskCap: EARN_TASK_CAP,
-  categories: EARN_TASK_CATEGORIES,
-  tasks: EARN_TASKS,
+  categories: [],
+  tasks: [],
   channels: [],
   claimedTaskIds: [],
   verifiedTaskIds: [],
@@ -91,6 +91,19 @@ function normalizeCategory(category: EarnTaskCategory): EarnTaskCategory {
   };
 }
 
+function normalizeChannel(channel: EarnChannelItem): EarnChannelItem {
+  return {
+    id: String(channel.id || ""),
+    platform: String(channel.platform || "Channel"),
+    name: String(channel.name || "Unnamed channel"),
+    url: String(channel.url || "#"),
+    icon: String(channel.icon || "🔗"),
+    tasks: Math.max(0, Math.floor(Number(channel.tasks) || 0)),
+    kick: Math.max(0, Math.floor(Number(channel.kick) || 0)),
+    isActive: channel.isActive !== false
+  };
+}
+
 function createEarnStore() {
   const { subscribe, set, update } = writable<EarnState>(initialState);
   let initPromise: Promise<void> | null = null;
@@ -107,12 +120,9 @@ function createEarnStore() {
           update((state) => ({
             ...state,
             status: "ready",
-            categories:
-              catalogPayload.categories.length > 0
-                ? catalogPayload.categories.map(normalizeCategory)
-                : EARN_TASK_CATEGORIES,
-            tasks: catalogPayload.tasks.length > 0 ? catalogPayload.tasks.map(normalizeTask) : EARN_TASKS,
-            channels: catalogPayload.channels ?? [],
+            categories: catalogPayload.categories.map(normalizeCategory),
+            tasks: catalogPayload.tasks.map(normalizeTask),
+            channels: (catalogPayload.channels ?? []).map(normalizeChannel),
             verifiedTaskIds: [],
             errorMessage: null
           }));
@@ -134,12 +144,9 @@ function createEarnStore() {
         ...state,
         status: "ready",
         taskCap: Math.max(0, Math.floor(Number(earnPayload.earn.taskCap) || EARN_TASK_CAP)),
-        categories:
-          catalogPayload.categories.length > 0
-            ? catalogPayload.categories.map(normalizeCategory)
-            : EARN_TASK_CATEGORIES,
-        tasks: catalogPayload.tasks.length > 0 ? catalogPayload.tasks.map(normalizeTask) : EARN_TASKS,
-        channels: catalogPayload.channels ?? [],
+        categories: catalogPayload.categories.map(normalizeCategory),
+        tasks: catalogPayload.tasks.map(normalizeTask),
+        channels: (catalogPayload.channels ?? []).map(normalizeChannel),
         claimedKick: Math.max(0, Math.floor(Number(earnPayload.earn.claimedKick) || 0)),
         claimedTaskIds: earnPayload.earn.claimedTaskIds.filter((taskId) => typeof taskId === "string"),
         verifiedTaskIds: (earnPayload.earn.verifiedTaskIds ?? []).filter(

@@ -91,6 +91,7 @@ export interface EarnChannelItem {
   icon: string;
   tasks: number;
   kick: number;
+  isActive?: boolean;
 }
 
 export interface EarnCatalogResponse {

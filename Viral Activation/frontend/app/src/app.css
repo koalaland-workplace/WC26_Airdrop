@@ -1280,6 +1280,27 @@ a {
   letter-spacing: 0.4px;
 }
 
+.earn-channel-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.earn-channel-status {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  border-radius: 999px;
+  padding: 2px 6px;
+  border: 1px solid rgba(176, 184, 193, 0.4);
+  color: var(--c-gray);
+}
+
+.earn-channel-item.inactive {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .info-actions-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
