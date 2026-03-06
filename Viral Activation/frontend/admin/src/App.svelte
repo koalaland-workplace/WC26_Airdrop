@@ -12,6 +12,7 @@
     getReferralsMetrics,
     getSystemHealth,
     getSystemQueue,
+    installFreeNewsApiPack,
     listAuditLogs,
     listAnnouncements,
     listBoardMembers,
@@ -1385,6 +1386,25 @@
     footballNewsProfiles = parsedProfiles.profiles;
     footballNewsActiveProfileId = parsedProfiles.activeId;
     setActiveFootballNewsProfile(parsedProfiles.activeId);
+  }
+
+  async function installFreeApiPack() {
+    loading = true;
+    error = "";
+    try {
+      await withAccess((token) =>
+        installFreeNewsApiPack(token, {
+          setActive: true,
+          activeProvider: "openligadb"
+        })
+      );
+      await loadApiConfig();
+      showToast("Free API pack installed");
+    } catch (e) {
+      error = (e as Error).message;
+    } finally {
+      loading = false;
+    }
   }
 
   async function loadAnnouncements() {
@@ -2931,6 +2951,7 @@
             <div class="sec-hdr">
               <div class="sec-title"><div class="sec-dot y"></div>Football News API Integration</div>
               <div style="display:flex;gap:8px">
+                <button class="btn btn-ghost btn-sm" on:click={installFreeApiPack}>ADD FREE API PACK</button>
                 <button class="btn btn-ghost btn-sm" on:click={loadApiConfig}>RELOAD</button>
                 <button class="btn btn-ghost btn-sm" on:click={() => applyFootballProviderPreset(footballNewsApiForm.provider)}>LOAD PRESET</button>
                 <button class="btn btn-ghost btn-sm" on:click={resetFootballNewsApiForm}>RESET DEFAULT</button>

@@ -47,6 +47,11 @@ const manualSyncSchema = z.object({
 
 type FootballNewsConfig = z.infer<typeof footballNewsSchema>;
 
+type FootballNewsProfileNode = FootballNewsConfig & {
+  id: string;
+  name: string;
+};
+
 type SyncState = {
   running: boolean;
   lastAttemptAt: string | null;
@@ -97,6 +102,86 @@ type NormalizedFixtureItem = {
   highlight: string | null;
   rawPayload: Record<string, unknown>;
 };
+
+const FREE_FOOTBALL_NEWS_PROFILES: FootballNewsProfileNode[] = [
+  {
+    id: "openligadb-free",
+    name: "OpenLigaDB Free",
+    ...footballNewsSchema.parse({
+      enabled: true,
+      provider: "openligadb",
+      baseUrl: "https://api.openligadb.de",
+      apiKey: "",
+      keyHeader: "x-api-key",
+      endpoints: {
+        news: "/getmatchdata/wm2022",
+        fixtures: "/getmatchdata/wm2022"
+      },
+      defaults: {
+        competitions: ["WM2022"],
+        language: "de",
+        timezone: "UTC"
+      },
+      polling: {
+        intervalMinutes: 20,
+        timeoutMs: 12000
+      }
+    })
+  },
+  {
+    id: "thesportsdb-free",
+    name: "TheSportsDB Free",
+    ...footballNewsSchema.parse({
+      enabled: true,
+      provider: "thesportsdb",
+      baseUrl: "https://www.thesportsdb.com/api/v1/json/3",
+      apiKey: "",
+      keyHeader: "x-api-key",
+      endpoints: {
+        news: "/eventsseason.php?id=4429&s=2022",
+        fixtures: "/eventsseason.php?id=4429&s=2022"
+      },
+      defaults: {
+        competitions: ["FIFA-WC"],
+        language: "en",
+        timezone: "UTC"
+      },
+      polling: {
+        intervalMinutes: 20,
+        timeoutMs: 12000
+      }
+    })
+  },
+  {
+    id: "football-data-free",
+    name: "Football-Data Free (token required)",
+    ...footballNewsSchema.parse({
+      enabled: false,
+      provider: "football-data",
+      baseUrl: "https://api.football-data.org/v4",
+      apiKey: "",
+      keyHeader: "X-Auth-Token",
+      endpoints: {
+        news: "/competitions/WC/matches?season=2022",
+        fixtures: "/competitions/WC/matches?season=2022"
+      },
+      defaults: {
+        competitions: ["WC"],
+        language: "en",
+        timezone: "UTC"
+      },
+      polling: {
+        intervalMinutes: 15,
+        timeoutMs: 12000
+      }
+    })
+  }
+];
+
+const installFreePackSchema = z.object({
+  setActive: z.boolean().default(true),
+  activeProvider: z.string().min(1).optional()
+});
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -898,6 +983,128 @@ export const newsRoutes: FastifyPluginAsync = async (app) => {
       }
     };
   });
+
+  app.post(
+    "/api/v1/system/news/free-pack/install",
+    { preHandler: app.requirePermission("api.manage") },
+    async (request) => {
+      const body = installFreePackSchema.parse(request.body ?? {});
+      const row = await app.prisma.featureConfig.findUnique({ where: { key: "api" } });
+      const current = isRecord(row?.value) ? row.value : {};
+      const rawExistingProfiles = Array.isArray(current.footballNewsProfiles)
+        ? current.footballNewsProfiles.filter(isRecord)
+        : [];
+
+      const existingProfiles: FootballNewsProfileNode[] = rawExistingProfiles
+        .map((rawProfile, index) => {
+          const profileRecord = isRecord(rawProfile) ? rawProfile : {};
+          const parsed = footballNewsSchema.safeParse(profileRecord);
+          if (!parsed.success) return null;
+          const id =
+            typeof profileRecord.id === "string" && profileRecord.id.trim().length > 0
+              ? profileRecord.id.trim()
+              : `profile-${index + 1}`;
+          const name =
+            typeof profileRecord.name === "string" && profileRecord.name.trim().length > 0
+              ? profileRecord.name.trim()
+              : parsed.data.provider;
+          return {
+            id,
+            name,
+            ...parsed.data
+          };
+        })
+        .filter((profile): profile is FootballNewsProfileNode => profile !== null);
+
+      const profilesByProvider = new Map<string, FootballNewsProfileNode>();
+      for (const profile of existingProfiles) {
+        profilesByProvider.set(profile.provider.toLowerCase(), profile);
+      }
+      for (const preset of FREE_FOOTBALL_NEWS_PROFILES) {
+        if (!profilesByProvider.has(preset.provider.toLowerCase())) {
+          profilesByProvider.set(preset.provider.toLowerCase(), preset);
+        }
+      }
+
+      const mergedProfiles = [...profilesByProvider.values()];
+      const requestedActive = body.activeProvider?.toLowerCase();
+      const activeProfile =
+        (requestedActive ? mergedProfiles.find((profile) => profile.provider.toLowerCase() === requestedActive) : null) ??
+        mergedProfiles.find((profile) => profile.provider.toLowerCase() === "openligadb") ??
+        mergedProfiles[0];
+
+      if (!activeProfile) {
+        throw app.httpErrors.badRequest("No API profile available after install");
+      }
+
+      const nextValue: Record<string, unknown> = {
+        ...current,
+        footballNewsProfiles: mergedProfiles.map((profile) => ({
+          id: profile.id,
+          name: profile.name,
+          enabled: profile.enabled,
+          provider: profile.provider,
+          baseUrl: profile.baseUrl,
+          apiKey: profile.apiKey,
+          keyHeader: profile.keyHeader,
+          endpoints: profile.endpoints,
+          defaults: profile.defaults,
+          polling: profile.polling
+        })),
+        ...(body.setActive
+          ? {
+              footballNewsActiveProfileId: activeProfile.id,
+              footballNews: {
+                enabled: activeProfile.enabled,
+                provider: activeProfile.provider,
+                baseUrl: activeProfile.baseUrl,
+                apiKey: activeProfile.apiKey,
+                keyHeader: activeProfile.keyHeader,
+                endpoints: activeProfile.endpoints,
+                defaults: activeProfile.defaults,
+                polling: activeProfile.polling
+              }
+            }
+          : {})
+      };
+
+      const after = await app.prisma.featureConfig.upsert({
+        where: { key: "api" },
+        update: {
+          value: nextValue as never,
+          updatedBy: request.auth.sub
+        },
+        create: {
+          key: "api",
+          value: nextValue as never,
+          updatedBy: request.auth.sub
+        }
+      });
+
+      await writeAudit(app.prisma, {
+        actorId: request.auth.sub,
+        actorRole: request.auth.role,
+        action: "news.free_pack.install",
+        module: "news",
+        targetType: "feature_config",
+        targetId: "api",
+        before: row?.value ?? null,
+        after: after.value,
+        ipAddress: request.ip
+      });
+
+      return {
+        ok: true,
+        profiles: mergedProfiles.map((profile) => ({
+          id: profile.id,
+          name: profile.name,
+          provider: profile.provider,
+          enabled: profile.enabled
+        })),
+        activeProfileId: body.setActive ? activeProfile.id : (current.footballNewsActiveProfileId as string | undefined) ?? null
+      };
+    }
+  );
 
   app.post(
     "/api/v1/system/news/sync",

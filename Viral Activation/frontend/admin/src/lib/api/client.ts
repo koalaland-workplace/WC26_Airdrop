@@ -466,6 +466,21 @@ export async function getSystemQueue(accessToken: string): Promise<SystemQueueSn
   });
 }
 
+export async function installFreeNewsApiPack(
+  accessToken: string,
+  payload: { setActive?: boolean; activeProvider?: string } = {}
+): Promise<{
+  ok: boolean;
+  profiles: Array<{ id: string; name: string; provider: string; enabled: boolean }>;
+  activeProfileId: string | null;
+}> {
+  return request("/api/v1/system/news/free-pack/install", {
+    method: "POST",
+    headers: authedHeaders(accessToken),
+    body: JSON.stringify(payload)
+  });
+}
+
 export async function downloadKickLedgerCsv(
   accessToken: string,
   query: { userId?: string; source?: string; from?: string; to?: string; limit?: number } = {}
