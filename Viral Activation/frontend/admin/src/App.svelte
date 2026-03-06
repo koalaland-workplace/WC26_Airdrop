@@ -840,56 +840,111 @@
     tier: MysteryBoxTier;
     label: string;
     minKick: number;
-    minKickLabel: string;
+    kickRangeLabel: string;
+    bonusLabel: string;
+    rightsLabel: string;
     maxPerUser: number;
-    discountLabel: string;
+    gameplayLabel: string;
+    rewardsLabel: string;
     defaultTotalBoxes: number;
   };
 
   const MYSTERY_TIER_POLICY: MysteryTierPolicyItem[] = [
     {
-      tier: "rising",
-      label: "Rising",
-      minKick: 25_000,
-      minKickLabel: "25,000 KICK",
+      tier: "rookie",
+      label: "Rookie",
+      minKick: 0,
+      kickRangeLabel: "0 - 25,000 KICK",
+      bonusLabel: "-",
+      rightsLabel: "Whitelist access · 2.5% discount · Max 25 boxes",
       maxPerUser: 25,
-      discountLabel: "2.5%",
+      gameplayLabel: "+1 Daily Lucky Spin",
+      rewardsLabel: "Rookie badge",
       defaultTotalBoxes: 25_000
     },
     {
-      tier: "elite",
-      label: "Elite",
-      minKick: 100_000,
-      minKickLabel: "100,000 KICK",
+      tier: "starter",
+      label: "Starter",
+      minKick: 25_000,
+      kickRangeLabel: "25,000 - 100,000 KICK",
+      bonusLabel: "-",
+      rightsLabel: "Whitelist · 5% discount · Max 25 boxes",
       maxPerUser: 25,
-      discountLabel: "5%",
-      defaultTotalBoxes: 10_000
+      gameplayLabel: "+2 Lucky Spins/day · +10% KICK bonus Quiz",
+      rewardsLabel: "1 Rising Box lottery ticket · Starter badge",
+      defaultTotalBoxes: 25_000
     },
     {
-      tier: "legacy",
-      label: "Legacy",
-      minKick: 250_000,
-      minKickLabel: "250,000 KICK",
-      maxPerUser: 10,
-      discountLabel: "10%",
+      tier: "pro",
+      label: "Pro",
+      minKick: 100_000,
+      kickRangeLabel: "100,000 - 250,000 KICK",
+      bonusLabel: "2,000 KICK",
+      rightsLabel: "VIP whitelist · 10% discount · Max 20 boxes",
+      maxPerUser: 20,
+      gameplayLabel: "+3 Lucky Spins/day · +15% KICK bonus games",
+      rewardsLabel: "2 Rising Box lottery ticket · Pro badge",
       defaultTotalBoxes: 5_000
     },
     {
-      tier: "vanguard",
-      label: "Vanguard",
+      tier: "champion",
+      label: "Champion",
+      minKick: 250_000,
+      kickRangeLabel: "250,000 - 500,000 KICK",
+      bonusLabel: "5,000 KICK",
+      rightsLabel: "VIP whitelist · 12.5% discount · Max 15 boxes",
+      maxPerUser: 15,
+      gameplayLabel: "+4 Lucky Spins/day · +20% KICK bonus",
+      rewardsLabel: "1 Rising Box guaranteed · Champion badge",
+      defaultTotalBoxes: 2_500
+    },
+    {
+      tier: "master",
+      label: "Master",
+      minKick: 500_000,
+      kickRangeLabel: "500,000 - 1,000,000 KICK",
+      bonusLabel: "10,000 KICK",
+      rightsLabel: "VIP whitelist · 15% discount · Max 12 boxes",
+      maxPerUser: 12,
+      gameplayLabel: "+5 Lucky Spins/day · +25% KICK bonus",
+      rewardsLabel: "1 Elite Box guaranteed · Master badge",
+      defaultTotalBoxes: 2_000
+    },
+    {
+      tier: "legend",
+      label: "Legend",
       minKick: 1_000_000,
-      minKickLabel: "1,000,000 KICK",
+      kickRangeLabel: "1,000,000+ KICK",
+      bonusLabel: "25,000 KICK",
+      rightsLabel: "Ultra VIP whitelist · 20% discount · Max 10 boxes",
       maxPerUser: 10,
-      discountLabel: "20%",
+      gameplayLabel: "+6 Lucky Spins/day · +30% KICK bonus",
+      rewardsLabel: "1 Legacy Mystery Box guaranteed · Hall of Fame leaderboard · Legend badge",
       defaultTotalBoxes: 1_000
     }
   ];
 
+  const LEGACY_MYSTERY_TIER_MAP: Partial<Record<string, MysteryBoxTier>> = {
+    rising: "starter",
+    elite: "pro",
+    legacy: "champion",
+    vanguard: "legend"
+  };
+
   const MYSTERY_TIER_POLICY_MAP = new Map(MYSTERY_TIER_POLICY.map((item) => [item.tier, item]));
 
+  function normalizeMysteryTierKey(value: string): MysteryBoxTier | null {
+    const normalized = String(value).trim().toLowerCase();
+    if (MYSTERY_TIER_POLICY_MAP.has(normalized as MysteryBoxTier)) {
+      return normalized as MysteryBoxTier;
+    }
+    return LEGACY_MYSTERY_TIER_MAP[normalized] ?? null;
+  }
+
   function mysteryTierPolicy(tier: string): MysteryTierPolicyItem | null {
-    const normalized = String(tier).trim().toLowerCase();
-    return MYSTERY_TIER_POLICY_MAP.get(normalized as MysteryBoxTier) ?? null;
+    const normalizedTier = normalizeMysteryTierKey(tier);
+    if (!normalizedTier) return null;
+    return MYSTERY_TIER_POLICY_MAP.get(normalizedTier) ?? null;
   }
 
   function defaultMysteryBoxAllocationConfig(): MysteryBoxAllocationConfig {
@@ -912,7 +967,16 @@
     if (!raw) return fallback;
 
     const sourceAllocations = Array.isArray(raw.allocations) ? raw.allocations : [];
-    const byTier = new Map(sourceAllocations.map((row) => [row.tier, row]));
+    const byTier = new Map<MysteryBoxTier, (typeof sourceAllocations)[number]>();
+    for (const row of sourceAllocations) {
+      const rawTier = String((row as { tier?: unknown }).tier ?? "");
+      const normalizedTier = normalizeMysteryTierKey(rawTier);
+      if (!normalizedTier) continue;
+      const rowTier = rawTier.trim().toLowerCase();
+      if (rowTier === normalizedTier || !byTier.has(normalizedTier)) {
+        byTier.set(normalizedTier, row);
+      }
+    }
     const snapshotCandidate = typeof raw.snapshotAt === "string" && raw.snapshotAt.trim() ? new Date(raw.snapshotAt) : null;
     const allocations = MYSTERY_TIER_POLICY.map((policy) => {
       const current = byTier.get(policy.tier);
@@ -1522,7 +1586,11 @@
   }
 
   function tierKickLabel(tier: string): string {
-    return mysteryTierPolicy(tier)?.minKickLabel ?? "-";
+    return mysteryTierPolicy(tier)?.kickRangeLabel ?? "-";
+  }
+
+  function tierBonusLabel(tier: string): string {
+    return mysteryTierPolicy(tier)?.bonusLabel ?? "-";
   }
 
   function tierMaxPerUser(tier: string): number {
@@ -1532,7 +1600,15 @@
   function tierRightsLabel(tier: string): string {
     const policy = mysteryTierPolicy(tier);
     if (!policy) return "Whitelist access · fixed discount · mystery box quota by policy";
-    return `Whitelist access · ${policy.discountLabel} discount · up to ${policy.maxPerUser} boxes/user`;
+    return policy.rightsLabel;
+  }
+
+  function tierGameplayLabel(tier: string): string {
+    return mysteryTierPolicy(tier)?.gameplayLabel ?? "-";
+  }
+
+  function tierRewardsLabel(tier: string): string {
+    return mysteryTierPolicy(tier)?.rewardsLabel ?? "-";
   }
 
   function mysterySnapshotInputValue(): string {
@@ -3437,6 +3513,8 @@
                       <div>
                         <div class="mb-tier-name" style="font-size:16px;margin:0">{tierLabel(row.tier)}</div>
                         <div class="mb-tier-policy">{tierRightsLabel(row.tier)}</div>
+                        <div class="mb-tier-policy">Gameplay: {tierGameplayLabel(row.tier)}</div>
+                        <div class="mb-tier-policy">Exclusive: {tierRewardsLabel(row.tier)}</div>
                       </div>
                       <label class="toggle">
                         <input
@@ -3460,12 +3538,16 @@
                         />
                       </div>
                       <div class="form-g" style="margin:0">
-                        <label for={`mb-min-${row.tier}`}>Min KICK (fixed)</label>
+                        <label for={`mb-min-${row.tier}`}>KICK Range (fixed)</label>
                         <input id={`mb-min-${row.tier}`} class="inp" value={tierKickLabel(row.tier)} readonly />
                       </div>
                       <div class="form-g" style="margin:0">
                         <label for={`mb-max-${row.tier}`}>Max Per User (fixed)</label>
                         <input id={`mb-max-${row.tier}`} class="inp" value={String(tierMaxPerUser(row.tier))} readonly />
+                      </div>
+                      <div class="form-g" style="margin:0">
+                        <label for={`mb-bonus-${row.tier}`}>Tier Upgrade Bonus (fixed)</label>
+                        <input id={`mb-bonus-${row.tier}`} class="inp" value={tierBonusLabel(row.tier)} readonly />
                       </div>
                     </div>
                   </div>

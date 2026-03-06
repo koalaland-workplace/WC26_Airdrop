@@ -2,10 +2,12 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { writeAudit } from "../common/audit.js";
 
-const tierSchema = z.enum(["rising", "elite", "legacy", "vanguard"]);
+const tierSchema = z.enum(["rookie", "starter", "pro", "champion", "master", "legend"]);
+const legacyTierSchema = z.enum(["rising", "elite", "legacy", "vanguard"]);
+const incomingTierSchema = z.union([tierSchema, legacyTierSchema]);
 
 const allocationItemSchema = z.object({
-  tier: tierSchema,
+  tier: incomingTierSchema,
   totalBoxes: z.coerce.number().int().min(0).max(10_000_000),
   minKick: z.coerce.number().int().min(0).max(10_000_000),
   maxPerUser: z.coerce.number().int().min(1).max(10_000),
@@ -32,14 +34,38 @@ const adjustTicketSchema = z.object({
   reason: z.string().min(2).max(200).default("Manual mystery ticket adjustment")
 });
 
-type MysteryAllocationItem = z.infer<typeof allocationItemSchema>;
-type MysteryAllocationConfig = z.infer<typeof allocationConfigSchema>;
+type MysteryTier = z.infer<typeof tierSchema>;
+type IncomingTier = z.infer<typeof incomingTierSchema>;
+type ParsedAllocationItem = z.infer<typeof allocationItemSchema>;
+type MysteryAllocationItem = {
+  tier: MysteryTier;
+  totalBoxes: number;
+  minKick: number;
+  maxPerUser: number;
+  isActive: boolean;
+};
+type MysteryAllocationConfig = {
+  allocations: MysteryAllocationItem[];
+  requireActiveDays: number;
+  requireSybilPass: boolean;
+  snapshotAt: string | null;
+};
+
+function normalizeIncomingTier(tier: IncomingTier): MysteryTier {
+  if (tier === "rising") return "starter";
+  if (tier === "elite") return "pro";
+  if (tier === "legacy") return "champion";
+  if (tier === "vanguard") return "legend";
+  return tier;
+}
 
 const defaultAllocations: MysteryAllocationItem[] = [
-  { tier: "rising", totalBoxes: 25_000, minKick: 25_000, maxPerUser: 25, isActive: true },
-  { tier: "elite", totalBoxes: 10_000, minKick: 100_000, maxPerUser: 25, isActive: true },
-  { tier: "legacy", totalBoxes: 5_000, minKick: 250_000, maxPerUser: 10, isActive: true },
-  { tier: "vanguard", totalBoxes: 1_000, minKick: 1_000_000, maxPerUser: 10, isActive: true }
+  { tier: "rookie", totalBoxes: 25_000, minKick: 0, maxPerUser: 25, isActive: true },
+  { tier: "starter", totalBoxes: 25_000, minKick: 25_000, maxPerUser: 25, isActive: true },
+  { tier: "pro", totalBoxes: 5_000, minKick: 100_000, maxPerUser: 20, isActive: true },
+  { tier: "champion", totalBoxes: 2_500, minKick: 250_000, maxPerUser: 15, isActive: true },
+  { tier: "master", totalBoxes: 2_000, minKick: 500_000, maxPerUser: 12, isActive: true },
+  { tier: "legend", totalBoxes: 1_000, minKick: 1_000_000, maxPerUser: 10, isActive: true }
 ];
 
 function buildDefaultConfig(): MysteryAllocationConfig {
@@ -54,7 +80,17 @@ function buildDefaultConfig(): MysteryAllocationConfig {
 function normalizeConfig(raw: unknown): MysteryAllocationConfig {
   const parsed = allocationConfigSchema.safeParse(raw);
   if (!parsed.success) return buildDefaultConfig();
-  const byTier = new Map(parsed.data.allocations.map((item) => [item.tier, item]));
+  const byTier = new Map<MysteryTier, ParsedAllocationItem>();
+  for (const item of parsed.data.allocations) {
+    const normalizedTier = normalizeIncomingTier(item.tier);
+    const isNativeTier = item.tier === normalizedTier;
+    if (!byTier.has(normalizedTier) || isNativeTier) {
+      byTier.set(normalizedTier, {
+        ...item,
+        tier: normalizedTier
+      });
+    }
+  }
   const ordered = defaultAllocations.map((fallback) => {
     const current = byTier.get(fallback.tier);
     return {

@@ -1,39 +1,74 @@
 export interface TierPolicyItem {
-  id: "rising" | "elite" | "legacy" | "vanguard";
+  id: "rookie" | "starter" | "pro" | "champion" | "master" | "legend";
   label: string;
   minKick: number;
   kickLabel: string;
+  bonusLabel: string;
   rightsLabel: string;
+  gameplayLabel: string;
+  rewardsLabel: string;
 }
 
 export const TIER_POLICY: TierPolicyItem[] = [
   {
-    id: "rising",
-    label: "Rising",
+    id: "rookie",
+    label: "Rookie",
+    minKick: 0,
+    kickLabel: "0 - 25,000 KICK",
+    bonusLabel: "-",
+    rightsLabel: "Whitelist access · 2.5% discount · Max 25 boxes",
+    gameplayLabel: "+1 Daily Lucky Spin",
+    rewardsLabel: "Rookie badge"
+  },
+  {
+    id: "starter",
+    label: "Starter",
     minKick: 25_000,
-    kickLabel: "25,000 KICK",
-    rightsLabel: "Whitelist access · 2.5% discount · up to 25 boxes/user."
+    kickLabel: "25,000 - 100,000 KICK",
+    bonusLabel: "-",
+    rightsLabel: "Whitelist · 5% discount · Max 25 boxes",
+    gameplayLabel: "+2 Lucky Spins/day · +10% KICK bonus Quiz",
+    rewardsLabel: "1 Rising Box lottery ticket · Starter badge"
   },
   {
-    id: "elite",
-    label: "Elite",
+    id: "pro",
+    label: "Pro",
     minKick: 100_000,
-    kickLabel: "100,000 KICK",
-    rightsLabel: "Whitelist access · 5% discount · up to 25 boxes/user."
+    kickLabel: "100,000 - 250,000 KICK",
+    bonusLabel: "2,000 KICK",
+    rightsLabel: "VIP whitelist · 10% discount · Max 20 boxes",
+    gameplayLabel: "+3 Lucky Spins/day · +15% KICK bonus games",
+    rewardsLabel: "2 Rising Box lottery ticket · Pro badge"
   },
   {
-    id: "legacy",
-    label: "Legacy",
+    id: "champion",
+    label: "Champion",
     minKick: 250_000,
-    kickLabel: "250,000 KICK",
-    rightsLabel: "Whitelist access · 10% discount · up to 10 boxes/user."
+    kickLabel: "250,000 - 500,000 KICK",
+    bonusLabel: "5,000 KICK",
+    rightsLabel: "VIP whitelist · 12.5% discount · Max 15 boxes",
+    gameplayLabel: "+4 Lucky Spins/day · +20% KICK bonus",
+    rewardsLabel: "1 Rising Box guaranteed · Champion badge"
   },
   {
-    id: "vanguard",
-    label: "Vanguard",
+    id: "master",
+    label: "Master",
+    minKick: 500_000,
+    kickLabel: "500,000 - 1,000,000 KICK",
+    bonusLabel: "10,000 KICK",
+    rightsLabel: "VIP whitelist · 15% discount · Max 12 boxes",
+    gameplayLabel: "+5 Lucky Spins/day · +25% KICK bonus",
+    rewardsLabel: "1 Elite Box guaranteed · Master badge"
+  },
+  {
+    id: "legend",
+    label: "Legend",
     minKick: 1_000_000,
-    kickLabel: "1,000,000 KICK",
-    rightsLabel: "Whitelist access · 20% discount · up to 10 boxes/user."
+    kickLabel: "1,000,000+ KICK",
+    bonusLabel: "25,000 KICK",
+    rightsLabel: "Ultra VIP whitelist · 20% discount · Max 10 boxes",
+    gameplayLabel: "+6 Lucky Spins/day · +30% KICK bonus",
+    rewardsLabel: "1 Legacy Mystery Box guaranteed · Hall of Fame leaderboard · Legend badge"
   }
 ];
 

@@ -878,7 +878,7 @@ export async function deleteSocialChannel(accessToken: string, id: string): Prom
   });
 }
 
-export type MysteryBoxTier = "rising" | "elite" | "legacy" | "vanguard";
+export type MysteryBoxTier = "rookie" | "starter" | "pro" | "champion" | "master" | "legend";
 
 export interface MysteryBoxAllocationItem {
   tier: MysteryBoxTier;

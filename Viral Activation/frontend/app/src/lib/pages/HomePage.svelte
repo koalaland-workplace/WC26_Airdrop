@@ -97,7 +97,10 @@
     {#each TIER_POLICY as tier}
       <div class="home-tier-row">
         <div class="home-tier-row-head">{tier.label} - {tier.kickLabel}</div>
-        <div class="home-tier-row-desc">{tier.rightsLabel}</div>
+        <div class="home-tier-row-desc">Tier Upgrade Bonus: {tier.bonusLabel}</div>
+        <div class="home-tier-row-desc">Mystery Box Rights: {tier.rightsLabel}</div>
+        <div class="home-tier-row-desc">Gameplay Benefits: {tier.gameplayLabel}</div>
+        <div class="home-tier-row-desc">Exclusive Rewards: {tier.rewardsLabel}</div>
       </div>
     {/each}
   </div>
