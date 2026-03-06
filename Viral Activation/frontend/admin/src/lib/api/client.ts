@@ -1,5 +1,6 @@
 export type AdminRole = "owner" | "admin" | "moderator" | "support" | "analyst";
 export type UserStatus = "active" | "banned" | "vip";
+export type UserTier = "rookie" | "starter" | "pro" | "champion" | "master" | "legend";
 
 export interface Profile {
   id: string;
@@ -124,14 +125,26 @@ export interface AppUser {
   nationCode: string;
   status: UserStatus;
   kick: number;
+  tier: UserTier;
   mysteryTickets?: number;
   createdAt: string;
+}
+
+export interface UserTierStatItem {
+  tier: UserTier;
+  minKick: number;
+  maxKick: number | null;
+  totalUsers: number;
+  activeUsers: number;
+  vipUsers: number;
+  bannedUsers: number;
+  totalKick: number;
 }
 
 export async function listUsers(
   accessToken: string,
   query: { q?: string; status?: UserStatus; limit?: number; offset?: number } = {}
-): Promise<{ items: AppUser[]; total: number }> {
+): Promise<{ items: AppUser[]; total: number; tierStats: UserTierStatItem[] }> {
   const params = new URLSearchParams();
   if (query.q) params.set("q", query.q);
   if (query.status) params.set("status", query.status);
@@ -878,7 +891,7 @@ export async function deleteSocialChannel(accessToken: string, id: string): Prom
   });
 }
 
-export type MysteryBoxTier = "rookie" | "starter" | "pro" | "champion" | "master" | "legend";
+export type MysteryBoxTier = UserTier;
 
 export interface MysteryBoxAllocationItem {
   tier: MysteryBoxTier;

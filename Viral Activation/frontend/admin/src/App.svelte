@@ -70,6 +70,8 @@
     type SocialChannelItem,
     type SystemHealthSnapshot,
     type SystemQueueSnapshot,
+    type UserTier,
+    type UserTierStatItem,
     type UserStatus
   } from "./lib/api/client";
   import { clearSession, session, setActive, setPending } from "./lib/stores/session";
@@ -932,6 +934,7 @@
   };
 
   const MYSTERY_TIER_POLICY_MAP = new Map(MYSTERY_TIER_POLICY.map((item) => [item.tier, item]));
+  const MYSTERY_TIER_POLICY_DESC = [...MYSTERY_TIER_POLICY].sort((left, right) => right.minKick - left.minKick);
 
   function normalizeMysteryTierKey(value: string): MysteryBoxTier | null {
     const normalized = String(value).trim().toLowerCase();
@@ -945,6 +948,18 @@
     const normalizedTier = normalizeMysteryTierKey(tier);
     if (!normalizedTier) return null;
     return MYSTERY_TIER_POLICY_MAP.get(normalizedTier) ?? null;
+  }
+
+  function resolveTierByKick(kick: number): UserTier {
+    const safeKick = Number.isFinite(kick) ? kick : 0;
+    for (const policy of MYSTERY_TIER_POLICY_DESC) {
+      if (safeKick >= policy.minKick) return policy.tier;
+    }
+    return "rookie";
+  }
+
+  function userTier(user: AppUser): UserTier {
+    return normalizeMysteryTierKey(user.tier) ?? resolveTierByKick(user.kick);
   }
 
   function defaultMysteryBoxAllocationConfig(): MysteryBoxAllocationConfig {
@@ -1021,6 +1036,7 @@
 
   let users: AppUser[] = [];
   let usersTotal = 0;
+  let userTierStats: UserTierStatItem[] = [];
   let userQ = "";
   let userStatus: "all" | UserStatus = "all";
 
@@ -1876,6 +1892,7 @@
     );
     users = userRes.items;
     usersTotal = userRes.total;
+    userTierStats = userRes.tierStats;
     if (!selectedUserId && users[0]) selectedUserId = users[0].id;
     const ledgerRes = await withAccess((token) => listKickLedger(token, { limit: 80 }));
     ledger = ledgerRes.items;
@@ -2615,6 +2632,7 @@
     systemHealth = null;
     queueSnapshot = null;
     users = [];
+    userTierStats = [];
     ledger = [];
     leaderboardKick = [];
     leaderboardReferrers = [];
@@ -2991,10 +3009,23 @@
                 <button class="filter-btn r" class:active={userStatus === "banned"} on:click={() => (userStatus = "banned")}>Banned</button>
                 <button class="btn btn-ghost btn-sm" on:click={loadUsersAndLedger}>APPLY</button>
               </div>
+              <div class="grid-4" style="margin-top:10px">
+                {#each userTierStats as stat}
+                  <div class="mb-tier" style="text-align:left;padding:12px">
+                    <div class="mb-tier-name" style="font-size:14px;margin:0">{tierLabel(stat.tier)}</div>
+                    <div class="mb-tier-policy">Range: {tierKickLabel(stat.tier)}</div>
+                    <div class="mb-tier-policy">Users: {stat.totalUsers.toLocaleString()}</div>
+                    <div class="mb-tier-policy">
+                      Active/VIP/Banned: {stat.activeUsers.toLocaleString()} / {stat.vipUsers.toLocaleString()} / {stat.bannedUsers.toLocaleString()}
+                    </div>
+                    <div class="mb-tier-policy">Total KICK: {stat.totalKick.toLocaleString()}</div>
+                  </div>
+                {/each}
+              </div>
             </div>
             <div style="padding:0">
               <table class="tbl"><thead><tr>
-                <th>#</th><th>User</th><th>TG ID</th><th>Nation</th><th>KICK</th><th>Status</th><th>Actions</th>
+                <th>#</th><th>User</th><th>TG ID</th><th>Nation</th><th>KICK</th><th>Tier</th><th>Status</th><th>Actions</th>
               </tr></thead><tbody>
                 {#each users as u, i}
                   <tr>
@@ -3003,6 +3034,7 @@
                     <td>{u.telegramId ?? "-"}</td>
                     <td>{u.nationCode}</td>
                     <td style="font-family:var(--mono);color:var(--yellow)">{u.kick.toLocaleString()}</td>
+                    <td><span class="tag tag-b">{tierLabel(userTier(u))}</span></td>
                     <td><span class={`tag ${statusTag(u.status)}`}>{u.status.toUpperCase()}</span></td>
                     <td style="display:flex;gap:6px;flex-wrap:wrap">
                       <button class="act-btn act-g" on:click={() => changeUserStatus(u.id, "active")}>ACTIVE</button>
