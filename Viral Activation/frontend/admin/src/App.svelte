@@ -57,6 +57,7 @@
     type MatchFixture,
     type MissionItem,
     type MysteryBoxAllocationConfig,
+    type MysteryBoxTier,
     type MysteryBoxTicketUser,
     type NationLeaderboardItem,
     type PiqueConversation,
@@ -835,17 +836,106 @@
     };
   }
 
+  type MysteryTierPolicyItem = {
+    tier: MysteryBoxTier;
+    label: string;
+    minKick: number;
+    minKickLabel: string;
+    maxPerUser: number;
+    discountLabel: string;
+    defaultTotalBoxes: number;
+  };
+
+  const MYSTERY_TIER_POLICY: MysteryTierPolicyItem[] = [
+    {
+      tier: "rising",
+      label: "Rising",
+      minKick: 25_000,
+      minKickLabel: "25,000 KICK",
+      maxPerUser: 25,
+      discountLabel: "2.5%",
+      defaultTotalBoxes: 25_000
+    },
+    {
+      tier: "elite",
+      label: "Elite",
+      minKick: 100_000,
+      minKickLabel: "100,000 KICK",
+      maxPerUser: 25,
+      discountLabel: "5%",
+      defaultTotalBoxes: 10_000
+    },
+    {
+      tier: "legacy",
+      label: "Legacy",
+      minKick: 250_000,
+      minKickLabel: "250,000 KICK",
+      maxPerUser: 10,
+      discountLabel: "10%",
+      defaultTotalBoxes: 5_000
+    },
+    {
+      tier: "vanguard",
+      label: "Vanguard",
+      minKick: 1_000_000,
+      minKickLabel: "1,000,000 KICK",
+      maxPerUser: 10,
+      discountLabel: "20%",
+      defaultTotalBoxes: 1_000
+    }
+  ];
+
+  const MYSTERY_TIER_POLICY_MAP = new Map(MYSTERY_TIER_POLICY.map((item) => [item.tier, item]));
+
+  function mysteryTierPolicy(tier: string): MysteryTierPolicyItem | null {
+    const normalized = String(tier).trim().toLowerCase();
+    return MYSTERY_TIER_POLICY_MAP.get(normalized as MysteryBoxTier) ?? null;
+  }
+
   function defaultMysteryBoxAllocationConfig(): MysteryBoxAllocationConfig {
     return {
-      allocations: [
-        { tier: "rising", totalBoxes: 25000, minKick: 25000, maxPerUser: 25, isActive: true },
-        { tier: "elite", totalBoxes: 10000, minKick: 100000, maxPerUser: 25, isActive: true },
-        { tier: "legacy", totalBoxes: 5000, minKick: 250000, maxPerUser: 10, isActive: true },
-        { tier: "vanguard", totalBoxes: 1000, minKick: 1000000, maxPerUser: 10, isActive: true }
-      ],
+      allocations: MYSTERY_TIER_POLICY.map((policy) => ({
+        tier: policy.tier,
+        totalBoxes: policy.defaultTotalBoxes,
+        minKick: policy.minKick,
+        maxPerUser: policy.maxPerUser,
+        isActive: true
+      })),
       requireActiveDays: 7,
       requireSybilPass: true,
       snapshotAt: null
+    };
+  }
+
+  function normalizeMysteryBoxConfig(raw: MysteryBoxAllocationConfig | null | undefined): MysteryBoxAllocationConfig {
+    const fallback = defaultMysteryBoxAllocationConfig();
+    if (!raw) return fallback;
+
+    const sourceAllocations = Array.isArray(raw.allocations) ? raw.allocations : [];
+    const byTier = new Map(sourceAllocations.map((row) => [row.tier, row]));
+    const snapshotCandidate = typeof raw.snapshotAt === "string" && raw.snapshotAt.trim() ? new Date(raw.snapshotAt) : null;
+    const allocations = MYSTERY_TIER_POLICY.map((policy) => {
+      const current = byTier.get(policy.tier);
+      const totalBoxes =
+        current && Number.isFinite(current.totalBoxes)
+          ? Math.max(0, Math.trunc(current.totalBoxes))
+          : policy.defaultTotalBoxes;
+      return {
+        tier: policy.tier,
+        totalBoxes,
+        minKick: policy.minKick,
+        maxPerUser: policy.maxPerUser,
+        isActive: current?.isActive ?? true
+      };
+    });
+
+    return {
+      allocations,
+      requireActiveDays: Number.isFinite(raw.requireActiveDays)
+        ? Math.max(0, Math.trunc(raw.requireActiveDays))
+        : fallback.requireActiveDays,
+      requireSybilPass: typeof raw.requireSybilPass === "boolean" ? raw.requireSybilPass : fallback.requireSybilPass,
+      snapshotAt: snapshotCandidate && Number.isFinite(snapshotCandidate.getTime()) ? snapshotCandidate.toISOString() : null
     };
   }
 
@@ -1426,7 +1516,23 @@
   }
 
   function tierLabel(tier: string): string {
+    const policy = mysteryTierPolicy(tier);
+    if (policy) return policy.label;
     return tier.charAt(0).toUpperCase() + tier.slice(1);
+  }
+
+  function tierKickLabel(tier: string): string {
+    return mysteryTierPolicy(tier)?.minKickLabel ?? "-";
+  }
+
+  function tierMaxPerUser(tier: string): number {
+    return mysteryTierPolicy(tier)?.maxPerUser ?? 0;
+  }
+
+  function tierRightsLabel(tier: string): string {
+    const policy = mysteryTierPolicy(tier);
+    if (!policy) return "Whitelist access · fixed discount · mystery box quota by policy";
+    return `Whitelist access · ${policy.discountLabel} discount · up to ${policy.maxPerUser} boxes/user`;
   }
 
   function mysterySnapshotInputValue(): string {
@@ -1907,7 +2013,7 @@
         })
       )
     ]);
-    mysteryConfig = allocationRes.value ?? defaultMysteryBoxAllocationConfig();
+    mysteryConfig = normalizeMysteryBoxConfig(allocationRes.value);
     mysteryTicketUsers = ticketRes.items;
     mysteryTicketsTotal = ticketRes.total;
     mysteryTicketsSum = ticketRes.totalTickets;
@@ -1917,7 +2023,9 @@
     loading = true;
     error = "";
     try {
-      await withAccess((token) => updateMysteryBoxAllocations(token, mysteryConfig));
+      const normalized = normalizeMysteryBoxConfig(mysteryConfig);
+      mysteryConfig = normalized;
+      await withAccess((token) => updateMysteryBoxAllocations(token, normalized));
       showToast("Mystery Box allocation saved");
       await loadMysteryBox();
     } catch (e) {
@@ -3326,7 +3434,10 @@
                 {#each mysteryConfig.allocations as row, idx}
                   <div class="mb-tier" style="text-align:left">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                      <div class="mb-tier-name" style="font-size:16px;margin:0">{tierLabel(row.tier)}</div>
+                      <div>
+                        <div class="mb-tier-name" style="font-size:16px;margin:0">{tierLabel(row.tier)}</div>
+                        <div class="mb-tier-policy">{tierRightsLabel(row.tier)}</div>
+                      </div>
                       <label class="toggle">
                         <input
                           type="checkbox"
@@ -3338,8 +3449,9 @@
                     </div>
                     <div style="display:grid;gap:8px">
                       <div class="form-g" style="margin:0">
-                        <label>Total Boxes</label>
+                        <label for={`mb-total-${row.tier}`}>Total Boxes</label>
                         <input
+                          id={`mb-total-${row.tier}`}
                           class="inp"
                           type="number"
                           min="0"
@@ -3348,24 +3460,12 @@
                         />
                       </div>
                       <div class="form-g" style="margin:0">
-                        <label>Min KICK</label>
-                        <input
-                          class="inp"
-                          type="number"
-                          min="0"
-                          value={row.minKick}
-                          on:input={(event) => patchMysteryAllocation(idx, { minKick: toSafeInt(event.currentTarget && event.currentTarget.value, 0) })}
-                        />
+                        <label for={`mb-min-${row.tier}`}>Min KICK (fixed)</label>
+                        <input id={`mb-min-${row.tier}`} class="inp" value={tierKickLabel(row.tier)} readonly />
                       </div>
                       <div class="form-g" style="margin:0">
-                        <label>Max Per User</label>
-                        <input
-                          class="inp"
-                          type="number"
-                          min="1"
-                          value={row.maxPerUser}
-                          on:input={(event) => patchMysteryAllocation(idx, { maxPerUser: Math.max(1, toSafeInt(event.currentTarget && event.currentTarget.value, 1)) })}
-                        />
+                        <label for={`mb-max-${row.tier}`}>Max Per User (fixed)</label>
+                        <input id={`mb-max-${row.tier}`} class="inp" value={String(tierMaxPerUser(row.tier))} readonly />
                       </div>
                     </div>
                   </div>
@@ -3374,8 +3474,9 @@
 
               <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:center">
                 <div class="form-g" style="margin:0">
-                  <label>Required Active Days</label>
+                  <label for="mb-required-days">Required Active Days</label>
                   <input
+                    id="mb-required-days"
                     class="inp"
                     type="number"
                     min="0"
@@ -3388,8 +3489,9 @@
                   />
                 </div>
                 <div class="form-g" style="margin:0">
-                  <label>Snapshot Time (optional)</label>
+                  <label for="mb-snapshot-at">Snapshot Time (optional)</label>
                   <input
+                    id="mb-snapshot-at"
                     class="inp"
                     type="datetime-local"
                     value={mysterySnapshotInputValue()}

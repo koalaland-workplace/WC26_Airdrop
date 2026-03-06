@@ -3,6 +3,7 @@
   import type { AppPage, InfoTab } from "../stores/ui.store";
   import { HOME_HERO_SNAPSHOT, HOME_TOP_NATIONS } from "../modules/home/data";
   import { daysUntilKickoff, formatFans } from "../modules/home/utils";
+  import { TIER_POLICY } from "../modules/tier/policy";
   import { hotSignalsStore } from "../stores/hot-signals.store";
   import { spinStore } from "../stores/spin.store";
   import { updatedLabel } from "../modules/news/utils";
@@ -88,6 +89,17 @@
       <div class="home-quick-reward">Earn up to 500 KICK</div>
       <button class="btn b-b" type="button" on:click={() => onNavigate("quiz")}>START QUIZ</button>
     </div>
+  </div>
+
+  <div class="card acc-y home-tier-card">
+    <div class="home-tier-title">2.4 Tiers & Mystery Boxes</div>
+    <div class="home-tier-sub">Your total KICK at snapshot determines your tier and Mystery Box rights:</div>
+    {#each TIER_POLICY as tier}
+      <div class="home-tier-row">
+        <div class="home-tier-row-head">{tier.label} - {tier.kickLabel}</div>
+        <div class="home-tier-row-desc">{tier.rightsLabel}</div>
+      </div>
+    {/each}
   </div>
 
   <button class="card acc-b home-match" type="button" on:click={() => onOpenInfoTab("match")}>

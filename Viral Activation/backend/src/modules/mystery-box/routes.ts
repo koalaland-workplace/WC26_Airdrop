@@ -57,7 +57,14 @@ function normalizeConfig(raw: unknown): MysteryAllocationConfig {
   const byTier = new Map(parsed.data.allocations.map((item) => [item.tier, item]));
   const ordered = defaultAllocations.map((fallback) => {
     const current = byTier.get(fallback.tier);
-    return current ?? fallback;
+    return {
+      tier: fallback.tier,
+      totalBoxes: current?.totalBoxes ?? fallback.totalBoxes,
+      // Tier policy is fixed across app/admin and should not drift by manual edits.
+      minKick: fallback.minKick,
+      maxPerUser: fallback.maxPerUser,
+      isActive: current?.isActive ?? fallback.isActive
+    };
   });
   return {
     allocations: ordered,
@@ -227,4 +234,3 @@ export const mysteryBoxRoutes: FastifyPluginAsync = async (app) => {
     }
   );
 };
-

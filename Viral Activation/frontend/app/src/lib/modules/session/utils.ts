@@ -1,3 +1,5 @@
+import { resolveTierPolicyByKick } from "../tier/policy";
+
 const SESSION_ID_STORAGE_KEY = "wc26_session_id_v1";
 const KICK_PROGRESS_TARGET = 50_000;
 
@@ -29,10 +31,8 @@ export function clearStoredSessionId(): void {
 }
 
 export function resolveTierLabel(kick: number): string {
-  if (kick >= 80_000) return "Legend Fan";
-  if (kick >= 20_000) return "Elite Fan";
-  if (kick >= 8_000) return "Core Fan";
-  return "Rookie Fan";
+  const tier = resolveTierPolicyByKick(kick);
+  return tier?.label ?? "Unranked";
 }
 
 export function resolveRankLine(kick: number): string {
