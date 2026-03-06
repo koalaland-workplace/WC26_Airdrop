@@ -180,6 +180,7 @@ function categoryMeta(categoryId: string): { icon: string; title: string; tone: 
 function inferActionLabel(code: string, name: string): string {
   const text = `${code} ${name}`.toLowerCase();
   if (text.includes("retweet")) return "RT";
+  if (text.includes("subscribe")) return "SUBSCRIBE";
   if (text.includes("follow")) return "FOLLOW";
   if (text.includes("join")) return "JOIN";
   if (text.includes("invite")) return "INVITE";
@@ -195,6 +196,7 @@ function inferActionLabel(code: string, name: string): string {
 function inferTaskIcon(code: string, name: string, fallbackIcon: string): string {
   const text = `${code} ${name}`.toLowerCase();
   if (text.includes("retweet")) return "🔁";
+  if (text.includes("subscribe")) return "📺";
   if (text.includes("follow")) return "👤";
   if (text.includes("join") && text.includes("group")) return "💬";
   if (text.includes("join") && text.includes("channel")) return "🌐";
