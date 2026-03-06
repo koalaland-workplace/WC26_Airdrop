@@ -555,6 +555,28 @@ export interface MatchFixture {
   updatedAt: string;
 }
 
+export interface MatchUpsertPayload {
+  id?: string;
+  groupCode: string;
+  homeNation: string;
+  awayNation: string;
+  stadium: string;
+  city?: string;
+  kickoffAt: string;
+  status?: string;
+  homeScore?: number;
+  awayScore?: number;
+  highlight?: string;
+}
+
+export interface MatchStatusPayload {
+  id: string;
+  status: string;
+  homeScore?: number;
+  awayScore?: number;
+  highlight?: string;
+}
+
 export async function listMatches(
   accessToken: string,
   query: { groupCode?: string; status?: string; from?: string; to?: string; limit?: number; offset?: number } = {}
@@ -566,6 +588,27 @@ export async function listMatches(
   const suffix = params.size > 0 ? `?${params.toString()}` : "";
   return request(`/api/v1/matches${suffix}`, {
     headers: authedHeaders(accessToken)
+  });
+}
+
+export async function upsertMatch(accessToken: string, payload: MatchUpsertPayload): Promise<MatchFixture> {
+  return request("/api/v1/matches/upsert", {
+    method: "POST",
+    headers: authedHeaders(accessToken),
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateMatchStatus(accessToken: string, payload: MatchStatusPayload): Promise<MatchFixture> {
+  return request(`/api/v1/matches/${payload.id}/status`, {
+    method: "PATCH",
+    headers: authedHeaders(accessToken),
+    body: JSON.stringify({
+      status: payload.status,
+      homeScore: payload.homeScore,
+      awayScore: payload.awayScore,
+      highlight: payload.highlight
+    })
   });
 }
 
@@ -584,6 +627,30 @@ export interface MissionItem {
   };
 }
 
+export interface MissionUpsertPayload {
+  id?: string;
+  code: string;
+  name: string;
+  phase?: string;
+  category?: string;
+  rewardKick: number;
+  capPerDay?: number;
+  isActive?: boolean;
+}
+
+export interface MissionMutationResult {
+  id: string;
+  code: string;
+  name: string;
+  phase: string;
+  category: string;
+  rewardKick: number;
+  capPerDay: number | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export async function listMissions(
   accessToken: string,
   query: { active?: boolean; category?: string; limit?: number; offset?: number } = {}
@@ -595,5 +662,27 @@ export async function listMissions(
   const suffix = params.size > 0 ? `?${params.toString()}` : "";
   return request(`/api/v1/missions${suffix}`, {
     headers: authedHeaders(accessToken)
+  });
+}
+
+export async function upsertMission(
+  accessToken: string,
+  payload: MissionUpsertPayload
+): Promise<MissionMutationResult> {
+  return request("/api/v1/missions/upsert", {
+    method: "POST",
+    headers: authedHeaders(accessToken),
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function toggleMission(
+  accessToken: string,
+  payload: { id: string; isActive: boolean }
+): Promise<MissionMutationResult> {
+  return request(`/api/v1/missions/${payload.id}/toggle`, {
+    method: "PATCH",
+    headers: authedHeaders(accessToken),
+    body: JSON.stringify({ isActive: payload.isActive })
   });
 }

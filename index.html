@@ -1390,6 +1390,25 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .home-nation-divider{height:1px;background:rgba(255,255,255,.12);margin:7px 0;}
 .home-your-nation{font-size:10px;color:var(--c-gray);margin-bottom:8px;}
 .home-nation-glow .home-nation-delta{animation:deltaGlow .7s ease;}
+.home-hot-signals{padding:11px;}
+.home-hot-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;}
+.home-hot-title{font-family:var(--font-display);font-weight:600;font-size:12px;color:var(--pw);}
+.home-hot-sub{font-size:9.8px;color:var(--c-gray);margin-bottom:8px;}
+.home-hot-open{
+  border:1px solid rgba(95,208,255,.35);
+  background:rgba(95,208,255,.09);
+  color:var(--c-blue);
+  border-radius:999px;
+  font-size:9px;
+  font-weight:700;
+  padding:5px 9px;
+  cursor:pointer;
+}
+.home-hot-open:active{transform:translateY(1px);}
+.home-hot-list .pulse-hot-item{background:#121620;border-color:#1e2a3b;}
+.home-hot-list .pulse-hot-title{font-size:11px;}
+.home-hot-list .pulse-hot-time{font-size:9px;}
+.pulse-hot-meta{margin-top:5px;font-size:9px;color:#71767b;}
 @keyframes deltaGlow{
   0%{text-shadow:0 0 0 transparent;}
   45%{text-shadow:0 0 12px rgba(31,191,106,.9);}
@@ -2168,6 +2187,15 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div class="home-nation-divider"></div>
     <div class="home-your-nation" id="home-your-nation-line">🇧🇷 Your Nation Rank: #132 | Contribution: +540 pts</div>
     <button class="btn b-g" onclick="go('wars',document.querySelector('.nb[data-page=\'wars\']'))">NATION WARS →</button>
+  </div>
+
+  <div class="card acc-b home-hot-signals" id="home-hot-signals">
+    <div class="home-hot-head">
+      <div class="home-hot-title">📡 HOT SIGNALS</div>
+      <button class="home-hot-open" onclick="openInfoSection('info-hot-signals')">OPEN INFO →</button>
+    </div>
+    <div class="home-hot-sub" id="home-hot-updated">Latest football signals and updates.</div>
+    <div class="pulse-hot-list home-hot-list" id="home-hot-list"></div>
   </div>
 
   <div class="home-legacy-cache" aria-hidden="true">
@@ -6519,6 +6547,10 @@ function showInfoTab(tab,btn){
   document.querySelectorAll('.info-tab-btn').forEach(function(b){ b.classList.remove('active'); });
   var activeBtn=btn||document.querySelector('.info-tab-btn[data-tab="'+tab+'"]');
   if(activeBtn) activeBtn.classList.add('active');
+  if(tab==='pulse'){
+    if(typeof renderInfoHotSignals==='function') renderInfoHotSignals();
+    if(typeof hotSignalsSyncFromApi==='function') hotSignalsSyncFromApi(false);
+  }
 }
 
 const WC26_GROUPS = [
@@ -6867,27 +6899,85 @@ function renderMatchGroups() {
 }
 
 
+function hotSignalTimeAgo(iso,idx){
+  if(!iso) return (idx+1)+'h';
+  var t=Date.parse(iso);
+  if(!Number.isFinite(t)) return (idx+1)+'h';
+  var diff=Math.max(0,Math.floor((Date.now()-t)/1000));
+  if(diff<60) return 'now';
+  if(diff<3600) return Math.floor(diff/60)+'m';
+  if(diff<86400) return Math.floor(diff/3600)+'h';
+  return Math.floor(diff/86400)+'d';
+}
+function hotSignalBuildRow(s,idx){
+  var meta=pulseImpactMeta(s&&s.impact);
+  var row=document.createElement('div');
+  row.className='pulse-post';
+
+  var head=document.createElement('div');
+  head.className='pulse-head';
+
+  var avatar=document.createElement('div');
+  avatar.className='pulse-avatar sig';
+  avatar.textContent='📡';
+  head.appendChild(avatar);
+
+  var metaWrap=document.createElement('div');
+  metaWrap.className='pulse-meta';
+  var name=document.createElement('div');
+  name.className='pulse-name';
+  name.textContent='WC26 Hot Signal';
+  var handle=document.createElement('span');
+  handle.className='pulse-handle';
+  handle.textContent='@wc26_hotdesk';
+  var dot=document.createElement('span');
+  dot.className='pulse-dot';
+  dot.textContent='·';
+  var time=document.createElement('span');
+  time.className='pulse-time';
+  time.textContent=hotSignalTimeAgo(s&&s.publishedAt,idx);
+  name.appendChild(handle);
+  name.appendChild(dot);
+  name.appendChild(time);
+  metaWrap.appendChild(name);
+
+  var tag=document.createElement('div');
+  tag.className='pulse-tag';
+  tag.textContent=(s&&s.source?String(s.source):'Live feed')+' · Signal '+(idx+1);
+  metaWrap.appendChild(tag);
+  head.appendChild(metaWrap);
+  row.appendChild(head);
+
+  var main=document.createElement('div');
+  main.className='pulse-main';
+  var body=document.createElement('div');
+  body.className='pulse-body';
+  body.textContent='🚨 '+(s&&s.text?String(s.text):'Live football update');
+  main.appendChild(body);
+
+  if(s&&s.summary){
+    var summary=document.createElement('div');
+    summary.className='pulse-hot-meta';
+    summary.textContent=String(s.summary);
+    main.appendChild(summary);
+  }
+
+  var impact=document.createElement('span');
+  impact.className='pulse-impact '+meta.cls;
+  impact.textContent=meta.icon+' '+meta.label;
+  main.appendChild(impact);
+  row.appendChild(main);
+  return row;
+}
 function renderInfoHotSignals(){
   var wrap=document.getElementById('info-pulse-content');
   if(!wrap || !Array.isArray(PULSE_SIGNALS)) return;
-  var html='';
-  var lim=Math.min(5,PULSE_SIGNALS.length);
+  wrap.innerHTML='';
+  var lim=Math.min(5,Math.max(1,PULSE_SIGNALS.length));
   for(var i=0;i<lim;i++){
-    var s=PULSE_SIGNALS[i];
-    var meta=pulseImpactMeta(s.impact);
-    html+='<div class="pulse-post">'+
-      '<div class="pulse-head">'+
-      '<div class="pulse-avatar sig">📡</div>'+
-      '<div class="pulse-meta">'+
-      '<div class="pulse-name">WC26 Hot Signal<span class="pulse-handle">@wc26_hotdesk</span><span class="pulse-dot">·</span><span class="pulse-time">'+(i+1)+'h</span></div>'+
-      '<div class="pulse-tag">Signal '+(i+1)+'</div>'+
-      '</div></div>'+
-      '<div class="pulse-main">'+
-      '<div class="pulse-body">🚨 '+s.text+'</div>'+
-      '<span class="pulse-impact '+meta.cls+'">'+meta.icon+' '+meta.label+'</span>'+
-      '</div></div>';
+    var s=PULSE_SIGNALS[i]||PULSE_SIGNALS[0]||{text:'Live football updates incoming.',impact:'MEDIUM'};
+    wrap.appendChild(hotSignalBuildRow(s,i));
   }
-  wrap.innerHTML=html;
 }
 
 function initInfoComposite(){
@@ -6906,16 +6996,7 @@ function initInfoComposite(){
   }
 
   var pulseWrap=document.getElementById('info-pulse-content');
-  var pulseSrc=document.querySelector('#page-pulse .pulse-feed');
-  if(pulseWrap && pulseSrc && !pulseWrap.dataset.bound){
-    var clone=pulseSrc.cloneNode(true);
-    clone.querySelectorAll('[id]').forEach(function(el){ el.removeAttribute('id'); });
-    clone.querySelectorAll('[onclick]').forEach(function(el){ el.removeAttribute('onclick'); });
-    clone.querySelectorAll('button').forEach(function(btn){ btn.disabled=true; });
-    pulseWrap.innerHTML='';
-    pulseWrap.appendChild(clone);
-    pulseWrap.dataset.bound='1';
-  } else if(pulseWrap && !pulseWrap.dataset.bound){
+  if(pulseWrap){
     renderInfoHotSignals();
     pulseWrap.dataset.bound='1';
   }
@@ -7961,18 +8042,23 @@ function initWars(){
 }
 
 /* ─────────── PULSE FEED ─────────── */
-var PULSE_SIGNALS=[
+var PULSE_SIGNALS_DEFAULT=[
   {text:'Mbappé injured during training',impact:'HIGH',share:'Mbappé injury could impact France performance.'},
   {text:'England changes midfield for next match',impact:'MEDIUM',share:'England midfield reshuffle could impact team rhythm.'},
   {text:'Brazil training intensity rises before matchday',impact:'MEDIUM',share:'Brazil training spike may boost squad sharpness.'},
   {text:'Argentina captain skips full-contact session',impact:'LOW',share:'Argentina captain limited session may affect chemistry.'},
   {text:'Spain confirms young striker starts tonight',impact:'HIGH',share:'Spain striker debut could shift attacking dynamics.'}
 ];
+var PULSE_SIGNALS=PULSE_SIGNALS_DEFAULT.slice();
 var PULSE_TOP3=[
   {code:'BR',name:'Brazil'},
   {code:'ID',name:'Indonesia'},
   {code:'VN',name:'Vietnam'}
 ];
+var HOT_SIGNAL_NEWS=[];
+var HOT_SIGNAL_NEWS_LOADING=false;
+var HOT_SIGNAL_NEWS_LAST_SYNC=0;
+var HOT_SIGNAL_NEWS_TTL_MS=120000;
 var PULSE_KEY='wc26_pulse_feed_v1';
 var PULSE={
   day:'',
@@ -7997,9 +8083,10 @@ function pulsePersist(){
 }
 function pulseLoad(){
   var raw=JSON.parse(localStorage.getItem(PULSE_KEY)||'{}');
+  var signalCount=Math.max(1,PULSE_SIGNALS.length);
   if(raw && typeof raw==='object'){
     PULSE.day=raw.day||'';
-    PULSE.signalIdx=Math.max(0,Math.floor(Number(raw.signalIdx)||0))%PULSE_SIGNALS.length;
+    PULSE.signalIdx=Math.max(0,Math.floor(Number(raw.signalIdx)||0))%signalCount;
     PULSE.impactVote=raw.impactVote||'';
     PULSE.signalShared=!!raw.signalShared;
     PULSE.signalMsg=raw.signalMsg||'';
@@ -8025,14 +8112,17 @@ function pulseGetTrend(day){
   return {team:teams[seed%teams.length],pct:8+(seed%9)};
 }
 function pulseShareMessage(){
-  var s=PULSE_SIGNALS[PULSE.signalIdx];
-  return '🚨 WC26 SIGNAL\n'+s.share+'\nI just claimed my reward on WC26 Fantasy.\nJoin and choose your country:\nhttps://t.me/WC26FantasyBot?start=ref_928372';
+  var list=(Array.isArray(PULSE_SIGNALS)&&PULSE_SIGNALS.length)?PULSE_SIGNALS:PULSE_SIGNALS_DEFAULT;
+  var idx=Math.max(0,Math.floor(Number(PULSE.signalIdx)||0))%Math.max(1,list.length);
+  var s=list[idx]||list[0]||{share:'Live football updates'};
+  return '🚨 WC26 SIGNAL\n'+String(s.share||s.text||'Live football update')+'\nI just claimed my reward on WC26 Fantasy.\nJoin and choose your country:\nhttps://t.me/WC26FantasyBot?start=ref_928372';
 }
 function pulseEnsureToday(){
   var today=getDayKey();
   if(PULSE.day===today) return;
+  var signalCount=Math.max(1,PULSE_SIGNALS.length);
   PULSE.day=today;
-  PULSE.signalIdx=pulseSeed(today)%PULSE_SIGNALS.length;
+  PULSE.signalIdx=pulseSeed(today)%signalCount;
   PULSE.impactVote='';
   PULSE.signalShared=false;
   PULSE.signalMsg='Vote one option to claim +10 KICK.';
@@ -8061,14 +8151,133 @@ function pulseImpactMeta(level){
   if(lv==='LOW') return {cls:'low',icon:'🟢',label:'Low'};
   return {cls:'medium',icon:'🟨',label:'Medium'};
 }
+function hotSignalImpactFromText(text){
+  var t=String(text||'').toLowerCase();
+  if(t.indexOf('injur')>=0 || t.indexOf('suspend')>=0 || t.indexOf('out ')>=0 || t.indexOf('breaking')>=0) return 'HIGH';
+  if(t.indexOf('lineup')>=0 || t.indexOf('start')>=0 || t.indexOf('confirmed')>=0 || t.indexOf('transfer')>=0) return 'MEDIUM';
+  return 'LOW';
+}
+function hotSignalBuildShare(text,source,url){
+  var m='🚨 WC26 HOT SIGNAL\n'+String(text||'');
+  if(source) m+='\nSource: '+source;
+  if(url) m+='\n'+url;
+  m+='\nJoin now:\nhttps://t.me/WC26FantasyBot?start=ref_928372';
+  return m;
+}
+function hotSignalNormalize(items){
+  if(!Array.isArray(items) || !items.length) return [];
+  var out=[];
+  for(var i=0;i<items.length;i++){
+    var row=items[i];
+    if(!row || typeof row!=='object') continue;
+    var title=String(row.title||'').trim();
+    if(!title) continue;
+    var source=String(row.sourceName||row.source||'');
+    var url=String(row.url||'');
+    var summary=String(row.summary||'');
+    out.push({
+      text:title,
+      impact:hotSignalImpactFromText(title+' '+summary),
+      share:hotSignalBuildShare(title,source,url),
+      source:source,
+      summary:summary,
+      publishedAt:row.publishedAt||row.createdAt||''
+    });
+  }
+  return out;
+}
+function hotSignalUpdatedLabel(){
+  if(!HOT_SIGNAL_NEWS_LAST_SYNC) return 'Latest football signals and updates.';
+  return 'Updated '+hotSignalTimeAgo(new Date(HOT_SIGNAL_NEWS_LAST_SYNC).toISOString(),0)+' ago';
+}
+function renderHomeHotSignals(){
+  var wrap=document.getElementById('home-hot-list');
+  if(!wrap) return;
+  wrap.innerHTML='';
+  var list=(Array.isArray(PULSE_SIGNALS)&&PULSE_SIGNALS.length)?PULSE_SIGNALS:PULSE_SIGNALS_DEFAULT;
+  var lim=Math.min(5,list.length);
+  for(var i=0;i<lim;i++){
+    var s=list[i];
+    var meta=pulseImpactMeta(s&&s.impact);
+    var item=document.createElement('div');
+    item.className='pulse-hot-item';
+
+    var head=document.createElement('div');
+    head.className='pulse-hot-head';
+    var title=document.createElement('div');
+    title.className='pulse-hot-title';
+    title.textContent='🚨 '+(s&&s.text?String(s.text):'Live football update');
+    var time=document.createElement('div');
+    time.className='pulse-hot-time';
+    time.textContent=hotSignalTimeAgo(s&&s.publishedAt,i);
+    head.appendChild(title);
+    head.appendChild(time);
+    item.appendChild(head);
+
+    var impact=document.createElement('span');
+    impact.className='pulse-impact '+meta.cls;
+    impact.textContent=meta.icon+' '+meta.label;
+    item.appendChild(impact);
+
+    if(s&&s.source){
+      var metaLine=document.createElement('div');
+      metaLine.className='pulse-hot-meta';
+      metaLine.textContent='Source: '+s.source;
+      item.appendChild(metaLine);
+    }
+    wrap.appendChild(item);
+  }
+  var updated=document.getElementById('home-hot-updated');
+  if(updated) updated.textContent=hotSignalUpdatedLabel();
+}
+async function hotSignalsSyncFromApi(force){
+  if(HOT_SIGNAL_NEWS_LOADING) return false;
+  var now=Date.now();
+  if(!force && HOT_SIGNAL_NEWS_LAST_SYNC && (now-HOT_SIGNAL_NEWS_LAST_SYNC)<HOT_SIGNAL_NEWS_TTL_MS){
+    return false;
+  }
+  HOT_SIGNAL_NEWS_LOADING=true;
+  var timeoutId=null;
+  try{
+    var ctl=null;
+    var opt={method:'GET',headers:{'content-type':'application/json'}};
+    if(typeof AbortController!=='undefined'){
+      ctl=new AbortController();
+      opt.signal=ctl.signal;
+      timeoutId=setTimeout(function(){ try{ ctl.abort(); }catch(_){ } },Math.max(1500,API_TIMEOUT_MS*2));
+    }
+    var res=await fetch(apiUrl('/api/v1/app/news?limit=5'),opt);
+    if(!res.ok) throw new Error('news_http_'+res.status);
+    var json=await res.json();
+    var normalized=hotSignalNormalize(json&&json.items);
+    if(normalized.length){
+      HOT_SIGNAL_NEWS=normalized;
+      PULSE_SIGNALS=normalized.slice(0,5);
+      HOT_SIGNAL_NEWS_LAST_SYNC=Date.now();
+      var signalCount=Math.max(1,PULSE_SIGNALS.length);
+      PULSE.signalIdx=Math.max(0,Math.floor(Number(PULSE.signalIdx)||0))%signalCount;
+    }
+  }catch(e){
+    if(!Array.isArray(PULSE_SIGNALS)||!PULSE_SIGNALS.length){
+      PULSE_SIGNALS=PULSE_SIGNALS_DEFAULT.slice();
+    }
+  }finally{
+    if(timeoutId) clearTimeout(timeoutId);
+    HOT_SIGNAL_NEWS_LOADING=false;
+  }
+  pulseRenderHotList();
+  renderInfoHotSignals();
+  renderHomeHotSignals();
+  return true;
+}
 
 function pulseRenderHotList(){
   var wrap=document.getElementById('pulse-hot-list');
   if(!wrap) return;
   wrap.innerHTML='';
-  var times=['10m','35m','1h','2h','3h'];
-  for(var i=0;i<Math.min(5,PULSE_SIGNALS.length);i++){
-    var s=PULSE_SIGNALS[i];
+  var list=(Array.isArray(PULSE_SIGNALS)&&PULSE_SIGNALS.length)?PULSE_SIGNALS:PULSE_SIGNALS_DEFAULT;
+  for(var i=0;i<Math.min(5,list.length);i++){
+    var s=list[i]||{text:'Live football update',impact:'MEDIUM'};
     var meta=pulseImpactMeta(s.impact);
     var item=document.createElement('div');
     item.className='pulse-hot-item';
@@ -8076,10 +8285,10 @@ function pulseRenderHotList(){
     head.className='pulse-hot-head';
     var title=document.createElement('div');
     title.className='pulse-hot-title';
-    title.textContent='🚨 '+s.text;
+    title.textContent='🚨 '+String(s.text||'Live football update');
     var time=document.createElement('div');
     time.className='pulse-hot-time';
-    time.textContent=times[i]||((i+1)+'h');
+    time.textContent=hotSignalTimeAgo(s&&s.publishedAt,i);
     head.appendChild(title);
     head.appendChild(time);
     item.appendChild(head);
@@ -8087,12 +8296,20 @@ function pulseRenderHotList(){
     impact.className='pulse-impact '+meta.cls;
     impact.textContent=meta.icon+' '+meta.label;
     item.appendChild(impact);
+    if(s&&s.source){
+      var metaLine=document.createElement('div');
+      metaLine.className='pulse-hot-meta';
+      metaLine.textContent='Source: '+s.source;
+      item.appendChild(metaLine);
+    }
     wrap.appendChild(item);
   }
 }
 function pulseRender(){
   pulseEnsureToday();
-  var signal=PULSE_SIGNALS[PULSE.signalIdx];
+  var list=(Array.isArray(PULSE_SIGNALS)&&PULSE_SIGNALS.length)?PULSE_SIGNALS:PULSE_SIGNALS_DEFAULT;
+  var idx=Math.max(0,Math.floor(Number(PULSE.signalIdx)||0))%Math.max(1,list.length);
+  var signal=list[idx]||{text:'Live football update',impact:'MEDIUM'};
   var sText=document.getElementById('pulse-signal-text');
   if(sText) sText.textContent='🚨 '+signal.text;
   var sImpact=document.getElementById('pulse-impact-level');

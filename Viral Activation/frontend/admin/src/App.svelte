@@ -27,10 +27,14 @@
     openSseStream,
     refreshSession,
     updateConfig,
+    updateMatchStatus,
     updateReferralsConfig,
     updateUserStatus,
     upsertBoardMember,
+    upsertMatch,
+    upsertMission,
     verifyTotp,
+    toggleMission,
     type AdminRole,
     type AuditLogItem,
     type Announcement,
@@ -228,6 +232,81 @@
     return rolePerms[role].has(perm);
   }
 
+  type FootballNewsApiForm = {
+    enabled: boolean;
+    provider: string;
+    baseUrl: string;
+    apiKey: string;
+    keyHeader: string;
+    newsPath: string;
+    fixturesPath: string;
+    competitions: string;
+    language: string;
+    timezone: string;
+    pollMinutes: string;
+    timeoutMs: string;
+  };
+
+  function defaultFootballNewsApiForm(): FootballNewsApiForm {
+    return {
+      enabled: false,
+      provider: "api-football",
+      baseUrl: "https://v3.football.api-sports.io",
+      apiKey: "",
+      keyHeader: "x-apisports-key",
+      newsPath: "/news",
+      fixturesPath: "/fixtures",
+      competitions: "FIFA-WC",
+      language: "en",
+      timezone: "UTC",
+      pollMinutes: "10",
+      timeoutMs: "12000"
+    };
+  }
+
+  function asRecord(value: unknown): Record<string, unknown> {
+    return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+  }
+
+  function asString(value: unknown, fallback = ""): string {
+    return typeof value === "string" ? value : fallback;
+  }
+
+  function asBoolean(value: unknown, fallback = false): boolean {
+    return typeof value === "boolean" ? value : fallback;
+  }
+
+  function asNumberString(value: unknown, fallback: number): string {
+    if (typeof value === "number" && Number.isFinite(value)) return String(Math.trunc(value));
+    if (typeof value === "string" && value.trim()) return value.trim();
+    return String(fallback);
+  }
+
+  function parseFootballNewsApiForm(config: Record<string, unknown>): FootballNewsApiForm {
+    const defaults = defaultFootballNewsApiForm();
+    const footballNews = asRecord(config.footballNews);
+    const endpoints = asRecord(footballNews.endpoints);
+    const polling = asRecord(footballNews.polling);
+    const defaultsNode = asRecord(footballNews.defaults);
+
+    return {
+      enabled: asBoolean(footballNews.enabled, defaults.enabled),
+      provider: asString(footballNews.provider, defaults.provider),
+      baseUrl: asString(footballNews.baseUrl, defaults.baseUrl),
+      apiKey: asString(footballNews.apiKey, defaults.apiKey),
+      keyHeader: asString(footballNews.keyHeader, defaults.keyHeader),
+      newsPath: asString(endpoints.news, defaults.newsPath),
+      fixturesPath: asString(endpoints.fixtures, defaults.fixturesPath),
+      competitions: Array.isArray(defaultsNode.competitions)
+        ? (defaultsNode.competitions as unknown[]).map((v) => String(v)).join(",")
+        : asString(defaultsNode.competitions, defaults.competitions),
+      language: asString(defaultsNode.language, defaults.language),
+      timezone: asString(defaultsNode.timezone, defaults.timezone),
+      pollMinutes: asNumberString(polling.intervalMinutes, Number(defaults.pollMinutes)),
+      timeoutMs: asNumberString(polling.timeoutMs, Number(defaults.timeoutMs))
+    };
+  }
+
   let page: PageId = "dashboard";
   let sidebarCollapsed = false;
   let loading = false;
@@ -255,6 +334,7 @@
 
   let spinConfigText = "{}";
   let penaltyConfigText = "{}";
+  let footballNewsApiForm: FootballNewsApiForm = defaultFootballNewsApiForm();
 
   let announcements: Announcement[] = [];
   let annTitle = "";
@@ -317,6 +397,50 @@
   };
   let matchesData: MatchFixture[] = [];
   let missionsData: MissionItem[] = [];
+  let matchForm: {
+    id: string;
+    groupCode: string;
+    homeNation: string;
+    awayNation: string;
+    stadium: string;
+    city: string;
+    kickoffAt: string;
+    status: string;
+    homeScore: string;
+    awayScore: string;
+    highlight: string;
+  } = {
+    id: "",
+    groupCode: "A",
+    homeNation: "",
+    awayNation: "",
+    stadium: "",
+    city: "",
+    kickoffAt: "",
+    status: "scheduled",
+    homeScore: "",
+    awayScore: "",
+    highlight: ""
+  };
+  let missionForm: {
+    id: string;
+    code: string;
+    name: string;
+    phase: string;
+    category: string;
+    rewardKick: string;
+    capPerDay: string;
+    isActive: boolean;
+  } = {
+    id: "",
+    code: "",
+    name: "",
+    phase: "Viral Activation",
+    category: "daily",
+    rewardKick: "100",
+    capPerDay: "",
+    isActive: true
+  };
 
   const topNations = [
     { flag: "🇧🇷", name: "Brazil", pts: "2.4M", rank: 1 },
@@ -377,6 +501,90 @@
     if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
     if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
     return `${Math.floor(diffSec / 86400)}d ago`;
+  }
+
+  function toDatetimeLocalValue(iso: string): string {
+    const dt = new Date(iso);
+    if (Number.isNaN(dt.getTime())) return "";
+    const localMs = dt.getTime() - dt.getTimezoneOffset() * 60_000;
+    return new Date(localMs).toISOString().slice(0, 16);
+  }
+
+  function parseOptionalInt(value: string, field: string): number | undefined {
+    if (!value.trim()) return undefined;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+      throw new Error(`Invalid number in ${field}`);
+    }
+    return Math.trunc(parsed);
+  }
+
+  function normalizePath(value: string): string {
+    const trimmed = value.trim();
+    if (!trimmed) return "/";
+    return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  }
+
+  function resetMatchForm() {
+    matchForm = {
+      id: "",
+      groupCode: "A",
+      homeNation: "",
+      awayNation: "",
+      stadium: "",
+      city: "",
+      kickoffAt: "",
+      status: "scheduled",
+      homeScore: "",
+      awayScore: "",
+      highlight: ""
+    };
+  }
+
+  function setMatchFormFromItem(match: MatchFixture) {
+    matchForm = {
+      id: match.id,
+      groupCode: match.groupCode,
+      homeNation: match.homeNation,
+      awayNation: match.awayNation,
+      stadium: match.stadium,
+      city: match.city ?? "",
+      kickoffAt: toDatetimeLocalValue(match.kickoffAt),
+      status: match.status,
+      homeScore: match.homeScore === null ? "" : String(match.homeScore),
+      awayScore: match.awayScore === null ? "" : String(match.awayScore),
+      highlight: match.highlight ?? ""
+    };
+  }
+
+  function resetMissionForm() {
+    missionForm = {
+      id: "",
+      code: "",
+      name: "",
+      phase: "Viral Activation",
+      category: "daily",
+      rewardKick: "100",
+      capPerDay: "",
+      isActive: true
+    };
+  }
+
+  function resetFootballNewsApiForm() {
+    footballNewsApiForm = defaultFootballNewsApiForm();
+  }
+
+  function setMissionFormFromItem(mission: MissionItem) {
+    missionForm = {
+      id: mission.id,
+      code: mission.code,
+      name: mission.name,
+      phase: mission.phase,
+      category: mission.category,
+      rewardKick: String(mission.rewardKick),
+      capPerDay: mission.capPerDay === null ? "" : String(mission.capPerDay),
+      isActive: mission.isActive
+    };
   }
 
   function feedItemFromAudit(activity: FeedSnapshotPayload["activities"][number]) {
@@ -557,6 +765,7 @@
 
     if (can("users.manage")) tasks.push(loadUsersAndLedger());
     if (can("config.spin") || can("config.penalty")) tasks.push(loadConfigs());
+    if (can("api.manage")) tasks.push(loadApiConfig());
     if (can("announcements.manage")) tasks.push(loadAnnouncements());
     if (can("pique.logs.read")) tasks.push(loadPique());
     if (can("board.manage")) tasks.push(loadBoard());
@@ -583,6 +792,7 @@
     if (next === "dashboard") await loadDashboard();
     if (next === "users" || next === "rewards") await loadUsersAndLedger();
     if (next === "dashboard" || next === "rewards" || next === "api") await loadOperationalData();
+    if (next === "api") await loadApiConfig();
     if (next === "rewards") await loadAuditLogs();
     if (next === "spin" || next === "penalty") await loadConfigs();
     if (next === "announce") await loadAnnouncements();
@@ -636,6 +846,11 @@
     penaltyConfigText = JSON.stringify(penalty.value, null, 2);
   }
 
+  async function loadApiConfig() {
+    const apiConfig = await withAccess((token) => getConfig(token, "api"));
+    footballNewsApiForm = parseFootballNewsApiForm(asRecord(apiConfig.value));
+  }
+
   async function loadAnnouncements() {
     announcements = await withAccess((token) => listAnnouncements(token));
   }
@@ -679,6 +894,129 @@
   async function loadMissions() {
     const res = await withAccess((token) => listMissions(token, { limit: 100 }));
     missionsData = res.items;
+  }
+
+  async function submitMatch() {
+    if (
+      !matchForm.groupCode.trim() ||
+      !matchForm.homeNation.trim() ||
+      !matchForm.awayNation.trim() ||
+      !matchForm.stadium.trim() ||
+      !matchForm.kickoffAt.trim()
+    ) {
+      error = "Please fill required match fields";
+      return;
+    }
+
+    const kickoffDate = new Date(matchForm.kickoffAt);
+    if (Number.isNaN(kickoffDate.getTime())) {
+      error = "Invalid kickoff time";
+      return;
+    }
+
+    loading = true;
+    error = "";
+    try {
+      await withAccess((token) =>
+        upsertMatch(token, {
+          id: matchForm.id || undefined,
+          groupCode: matchForm.groupCode.trim(),
+          homeNation: matchForm.homeNation.trim(),
+          awayNation: matchForm.awayNation.trim(),
+          stadium: matchForm.stadium.trim(),
+          city: matchForm.city.trim() || undefined,
+          kickoffAt: kickoffDate.toISOString(),
+          status: matchForm.status.trim() || "scheduled",
+          homeScore: parseOptionalInt(matchForm.homeScore, "home score"),
+          awayScore: parseOptionalInt(matchForm.awayScore, "away score"),
+          highlight: matchForm.highlight.trim() || undefined
+        })
+      );
+      showToast(matchForm.id ? "Match updated" : "Match created");
+      resetMatchForm();
+      await loadMatches();
+    } catch (e) {
+      error = (e as Error).message;
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function setMatchStatus(match: MatchFixture, status: string) {
+    loading = true;
+    error = "";
+    try {
+      await withAccess((token) =>
+        updateMatchStatus(token, {
+          id: match.id,
+          status,
+          homeScore: match.homeScore ?? undefined,
+          awayScore: match.awayScore ?? undefined,
+          highlight: match.highlight ?? undefined
+        })
+      );
+      await loadMatches();
+      showToast(`Match status set to ${status.toUpperCase()}`);
+    } catch (e) {
+      error = (e as Error).message;
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function submitMission() {
+    if (!missionForm.code.trim() || !missionForm.name.trim() || !missionForm.rewardKick.trim()) {
+      error = "Please fill required mission fields";
+      return;
+    }
+    const rewardKick = Number(missionForm.rewardKick);
+    if (!Number.isFinite(rewardKick) || rewardKick < 0) {
+      error = "Invalid reward KICK";
+      return;
+    }
+
+    loading = true;
+    error = "";
+    try {
+      await withAccess((token) =>
+        upsertMission(token, {
+          id: missionForm.id || undefined,
+          code: missionForm.code.trim(),
+          name: missionForm.name.trim(),
+          phase: missionForm.phase.trim() || "Viral Activation",
+          category: missionForm.category.trim() || "daily",
+          rewardKick: Math.trunc(rewardKick),
+          capPerDay: parseOptionalInt(missionForm.capPerDay, "cap per day"),
+          isActive: missionForm.isActive
+        })
+      );
+      showToast(missionForm.id ? "Mission updated" : "Mission created");
+      resetMissionForm();
+      await loadMissions();
+    } catch (e) {
+      error = (e as Error).message;
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function setMissionActive(mission: MissionItem, nextActive: boolean) {
+    loading = true;
+    error = "";
+    try {
+      await withAccess((token) =>
+        toggleMission(token, {
+          id: mission.id,
+          isActive: nextActive
+        })
+      );
+      await loadMissions();
+      showToast(`Mission ${nextActive ? "activated" : "disabled"}`);
+    } catch (e) {
+      error = (e as Error).message;
+    } finally {
+      loading = false;
+    }
   }
 
   async function saveReferralsConfig() {
@@ -742,6 +1080,68 @@
       const parsed = JSON.parse(raw) as Record<string, unknown>;
       await withAccess((token) => updateConfig(token, key, parsed));
       showToast(`${key.toUpperCase()} config saved`);
+    } catch (e) {
+      error = (e as Error).message;
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function saveFootballNewsApiConfig() {
+    const baseUrl = footballNewsApiForm.baseUrl.trim();
+    if (!baseUrl) {
+      error = "Base URL is required";
+      return;
+    }
+    let pollMinutes = Number(footballNewsApiForm.pollMinutes);
+    let timeoutMs = Number(footballNewsApiForm.timeoutMs);
+    if (!Number.isFinite(pollMinutes) || pollMinutes < 1) {
+      error = "Poll interval must be >= 1 minute";
+      return;
+    }
+    if (!Number.isFinite(timeoutMs) || timeoutMs < 1000) {
+      error = "Timeout must be >= 1000 ms";
+      return;
+    }
+    pollMinutes = Math.trunc(pollMinutes);
+    timeoutMs = Math.trunc(timeoutMs);
+
+    const competitions = footballNewsApiForm.competitions
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    loading = true;
+    error = "";
+    try {
+      const currentApiConfig = await withAccess((token) => getConfig(token, "api"));
+      const currentValue = asRecord(currentApiConfig.value);
+      const nextValue: Record<string, unknown> = {
+        ...currentValue,
+        footballNews: {
+          enabled: footballNewsApiForm.enabled,
+          provider: footballNewsApiForm.provider.trim() || "custom",
+          baseUrl,
+          apiKey: footballNewsApiForm.apiKey.trim(),
+          keyHeader: footballNewsApiForm.keyHeader.trim() || "x-api-key",
+          endpoints: {
+            news: normalizePath(footballNewsApiForm.newsPath),
+            fixtures: normalizePath(footballNewsApiForm.fixturesPath)
+          },
+          defaults: {
+            competitions,
+            language: footballNewsApiForm.language.trim() || "en",
+            timezone: footballNewsApiForm.timezone.trim() || "UTC"
+          },
+          polling: {
+            intervalMinutes: pollMinutes,
+            timeoutMs
+          }
+        }
+      };
+      await withAccess((token) => updateConfig(token, "api", nextValue));
+      showToast("Football API config saved");
+      await loadApiConfig();
     } catch (e) {
       error = (e as Error).message;
     } finally {
@@ -876,6 +1276,7 @@
     referralFlagged = [];
     matchesData = [];
     missionsData = [];
+    resetFootballNewsApiForm();
     liveFeed = [];
   }
 
@@ -1383,9 +1784,12 @@
       {#if page === "matches"}
         <div class="pg active" id="pg-matches">
           <div class="section">
-            <div class="sec-hdr"><div class="sec-title"><div class="sec-dot"></div>World Cup 2026 Schedule</div></div>
+            <div class="sec-hdr">
+              <div class="sec-title"><div class="sec-dot"></div>World Cup 2026 Schedule</div>
+              <button class="btn btn-ghost btn-sm" on:click={loadMatches}>REFRESH</button>
+            </div>
             <div class="sec-body" style="padding:0">
-              <table class="tbl"><thead><tr><th>Group</th><th>Fixture</th><th>Stadium</th><th>Status</th><th>Date</th></tr></thead><tbody>
+              <table class="tbl"><thead><tr><th>Group</th><th>Fixture</th><th>Stadium</th><th>Status</th><th>Date</th><th>Score</th><th>Actions</th></tr></thead><tbody>
                 {#each matchesData as m}
                   <tr>
                     <td>{m.groupCode}</td>
@@ -1393,30 +1797,118 @@
                     <td>{m.stadium}</td>
                     <td>{m.status}</td>
                     <td>{new Date(m.kickoffAt).toLocaleString()}</td>
+                    <td>{m.homeScore === null || m.awayScore === null ? "-" : `${m.homeScore} - ${m.awayScore}`}</td>
+                    <td style="display:flex;gap:6px;flex-wrap:wrap">
+                      {#if can("settings.manage")}
+                        <button class="btn btn-ghost btn-sm" on:click={() => setMatchFormFromItem(m)}>EDIT</button>
+                        <button class="btn btn-ghost btn-sm" disabled={m.status === "scheduled"} on:click={() => setMatchStatus(m, "scheduled")}>SCHEDULED</button>
+                        <button class="btn btn-ghost btn-sm" disabled={m.status === "live"} on:click={() => setMatchStatus(m, "live")}>LIVE</button>
+                        <button class="btn btn-ghost btn-sm" disabled={m.status === "finished"} on:click={() => setMatchStatus(m, "finished")}>FINISHED</button>
+                      {:else}
+                        -
+                      {/if}
+                    </td>
                   </tr>
                 {/each}
               </tbody></table>
             </div>
           </div>
+
+          {#if can("settings.manage")}
+            <div class="section">
+              <div class="sec-hdr">
+                <div class="sec-title"><div class="sec-dot y"></div>{matchForm.id ? "Update Match" : "Create Match"}</div>
+              </div>
+              <div class="sec-body" style="display:grid;gap:8px">
+                <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+                  <input class="inp" placeholder="Group (A-H)" bind:value={matchForm.groupCode} />
+                  <input class="inp" placeholder="Home nation" bind:value={matchForm.homeNation} />
+                  <input class="inp" placeholder="Away nation" bind:value={matchForm.awayNation} />
+                  <input class="inp" placeholder="Stadium" bind:value={matchForm.stadium} />
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+                  <input class="inp" placeholder="City (optional)" bind:value={matchForm.city} />
+                  <input class="inp" type="datetime-local" bind:value={matchForm.kickoffAt} />
+                  <input class="inp" placeholder="Status (scheduled/live/finished)" bind:value={matchForm.status} />
+                  <input class="inp" placeholder="Highlight (optional)" bind:value={matchForm.highlight} />
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;align-items:center">
+                  <input class="inp" type="number" placeholder="Home score" bind:value={matchForm.homeScore} />
+                  <input class="inp" type="number" placeholder="Away score" bind:value={matchForm.awayScore} />
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span style="font-size:11px;color:var(--text3)">Editing ID:</span>
+                    <code>{matchForm.id || "new"}</code>
+                  </div>
+                  <div style="display:flex;justify-content:flex-end;gap:8px">
+                    <button class="btn btn-ghost btn-sm" on:click={resetMatchForm}>RESET</button>
+                    <button class="btn btn-g btn-sm" on:click={submitMatch}>{matchForm.id ? "UPDATE MATCH" : "CREATE MATCH"}</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          {/if}
         </div>
       {/if}
 
       {#if page === "missions"}
         <div class="pg active" id="pg-missions">
           <div class="section">
-            <div class="sec-hdr"><div class="sec-title"><div class="sec-dot"></div>Mission Control</div></div>
+            <div class="sec-hdr">
+              <div class="sec-title"><div class="sec-dot"></div>Mission Control</div>
+              <button class="btn btn-ghost btn-sm" on:click={loadMissions}>REFRESH</button>
+            </div>
             <div class="sec-body" style="padding:0">
-              <table class="tbl"><thead><tr><th>Code</th><th>Mission</th><th>Phase</th><th>Reward</th><th>Completions</th><th>Status</th></tr></thead><tbody>
+              <table class="tbl"><thead><tr><th>Code</th><th>Mission</th><th>Phase</th><th>Category</th><th>Reward</th><th>Cap/Day</th><th>Completions</th><th>Awarded</th><th>Status</th><th>Actions</th></tr></thead><tbody>
                 {#each missionsData as m}
                   <tr>
-                    <td>{m.code}</td><td>{m.name}</td><td>{m.phase}</td><td>{m.rewardKick} KICK</td>
+                    <td>{m.code}</td><td>{m.name}</td><td>{m.phase}</td><td>{m.category}</td><td>{m.rewardKick} KICK</td><td>{m.capPerDay ?? "-"}</td>
                     <td>{m.stats.completions}</td>
+                    <td>{m.stats.awardedKick.toLocaleString()}</td>
                     <td><span class={`tag ${m.isActive ? "tag-g" : "tag-r"}`}>{m.isActive ? "ACTIVE" : "OFF"}</span></td>
+                    <td style="display:flex;gap:6px;flex-wrap:wrap">
+                      {#if can("missions.manage")}
+                        <button class="btn btn-ghost btn-sm" on:click={() => setMissionFormFromItem(m)}>EDIT</button>
+                        <button class="btn btn-ghost btn-sm" on:click={() => setMissionActive(m, !m.isActive)}>
+                          {m.isActive ? "DISABLE" : "ACTIVATE"}
+                        </button>
+                      {:else}
+                        -
+                      {/if}
+                    </td>
                   </tr>
                 {/each}
               </tbody></table>
             </div>
           </div>
+
+          {#if can("missions.manage")}
+            <div class="section">
+              <div class="sec-hdr">
+                <div class="sec-title"><div class="sec-dot y"></div>{missionForm.id ? "Update Mission" : "Create Mission"}</div>
+              </div>
+              <div class="sec-body" style="display:grid;gap:8px">
+                <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+                  <input class="inp" placeholder="Code (e.g. SOCIAL_TW_FOLLOW)" bind:value={missionForm.code} />
+                  <input class="inp" placeholder="Name" bind:value={missionForm.name} />
+                  <input class="inp" placeholder="Phase" bind:value={missionForm.phase} />
+                  <input class="inp" placeholder="Category" bind:value={missionForm.category} />
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;align-items:center">
+                  <input class="inp" type="number" placeholder="Reward KICK" bind:value={missionForm.rewardKick} />
+                  <input class="inp" type="number" placeholder="Cap per day (optional)" bind:value={missionForm.capPerDay} />
+                  <label class="toggle">
+                    <input type="checkbox" bind:checked={missionForm.isActive} />
+                    <span class="toggle-slider"></span>
+                  </label>
+                  <div style="display:flex;justify-content:flex-end;gap:8px">
+                    <button class="btn btn-ghost btn-sm" on:click={resetMissionForm}>RESET</button>
+                    <button class="btn btn-g btn-sm" on:click={submitMission}>{missionForm.id ? "UPDATE MISSION" : "CREATE MISSION"}</button>
+                  </div>
+                </div>
+                <div style="font-size:11px;color:var(--text3)">Editing ID: <code>{missionForm.id || "new"}</code></div>
+              </div>
+            </div>
+          {/if}
         </div>
       {/if}
 
@@ -1651,6 +2143,83 @@
           </div>
           <div class="section"><div class="sec-hdr"><div class="sec-title"><div class="sec-dot b"></div>API Notes</div></div>
             <div class="sec-body"><div class="api-log"><span class="log-info">/api/*</span> should be no-cache behind Cloudflare.<br /><span class="log-ok">WAF:</span> strict rules enabled for admin subdomain.<br /><span class="log-ok">Rate limit:</span> 100 req/min per IP.</div></div></div>
+          <div class="section">
+            <div class="sec-hdr">
+              <div class="sec-title"><div class="sec-dot y"></div>Football News API Integration</div>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-ghost btn-sm" on:click={loadApiConfig}>RELOAD</button>
+                <button class="btn btn-ghost btn-sm" on:click={resetFootballNewsApiForm}>RESET DEFAULT</button>
+                <button class="btn btn-g btn-sm" on:click={saveFootballNewsApiConfig}>SAVE CONFIG</button>
+              </div>
+            </div>
+            <div class="sec-body" style="display:grid;gap:8px">
+              <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;align-items:center">
+                <div class="form-g" style="margin:0">
+                  <label for="football-provider">Provider</label>
+                  <select id="football-provider" class="inp" bind:value={footballNewsApiForm.provider}>
+                    <option value="api-football">API-Football</option>
+                    <option value="football-data">Football-Data</option>
+                    <option value="sportmonks">SportMonks</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+                <div class="form-g" style="margin:0">
+                  <label for="football-key-header">API Key Header</label>
+                  <input id="football-key-header" class="inp" bind:value={footballNewsApiForm.keyHeader} />
+                </div>
+                <div class="form-g" style="margin:0">
+                  <label for="football-poll">Poll Interval (minutes)</label>
+                  <input id="football-poll" class="inp" type="number" min="1" bind:value={footballNewsApiForm.pollMinutes} />
+                </div>
+                <div class="form-g" style="margin:0">
+                  <label for="football-timeout">Timeout (ms)</label>
+                  <input id="football-timeout" class="inp" type="number" min="1000" bind:value={footballNewsApiForm.timeoutMs} />
+                </div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;align-items:end">
+                <div class="form-g" style="margin:0">
+                  <label for="football-base-url">Base URL</label>
+                  <input id="football-base-url" class="inp" bind:value={footballNewsApiForm.baseUrl} placeholder="https://v3.football.api-sports.io" />
+                </div>
+                <div class="form-g" style="margin:0">
+                  <label for="football-api-key">API Key</label>
+                  <input id="football-api-key" class="inp" type="password" bind:value={footballNewsApiForm.apiKey} placeholder="paste your provider key" />
+                </div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+                <div class="form-g" style="margin:0">
+                  <label for="football-news-path">News Path</label>
+                  <input id="football-news-path" class="inp" bind:value={footballNewsApiForm.newsPath} placeholder="/news" />
+                </div>
+                <div class="form-g" style="margin:0">
+                  <label for="football-fixtures-path">Fixtures Path</label>
+                  <input id="football-fixtures-path" class="inp" bind:value={footballNewsApiForm.fixturesPath} placeholder="/fixtures" />
+                </div>
+                <div class="form-g" style="margin:0">
+                  <label for="football-language">Language</label>
+                  <input id="football-language" class="inp" bind:value={footballNewsApiForm.language} placeholder="en" />
+                </div>
+                <div class="form-g" style="margin:0">
+                  <label for="football-timezone">Timezone</label>
+                  <input id="football-timezone" class="inp" bind:value={footballNewsApiForm.timezone} placeholder="UTC" />
+                </div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:3fr 1fr;gap:8px;align-items:center">
+                <div class="form-g" style="margin:0">
+                  <label for="football-competitions">Competitions (comma separated)</label>
+                  <input id="football-competitions" class="inp" bind:value={footballNewsApiForm.competitions} placeholder="FIFA-WC,UEFA-CL" />
+                </div>
+                <label class="toggle" style="justify-self:start;margin-top:22px">
+                  <input type="checkbox" bind:checked={footballNewsApiForm.enabled} />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div style="font-size:11px;color:var(--text3)">Toggle ON to allow scheduled sync using this provider config.</div>
+            </div>
+          </div>
         </div>
       {/if}
 

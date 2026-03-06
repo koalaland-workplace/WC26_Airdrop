@@ -199,3 +199,26 @@ model MissionProgress {
   @@index([missionId, createdAt])
   @@index([userId, createdAt])
 }
+
+model NewsItem {
+  id             String   @id @default(cuid())
+  provider       String
+  providerItemId String
+  title          String
+  summary        String?
+  content        String?
+  url            String?
+  imageUrl       String?
+  sourceName     String?
+  language       String?
+  competition    String?
+  publishedAt    DateTime
+  fetchedAt      DateTime @default(now())
+  rawPayload     Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([provider, providerItemId])
+  @@index([publishedAt])
+  @@index([createdAt])
+}

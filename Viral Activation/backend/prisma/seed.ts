@@ -93,6 +93,36 @@ async function main() {
   });
 
   await prisma.featureConfig.upsert({
+    where: { key: "api" },
+    update: {},
+    create: {
+      key: "api",
+      value: {
+        footballNews: {
+          enabled: false,
+          provider: "api-football",
+          baseUrl: "https://v3.football.api-sports.io",
+          apiKey: "",
+          keyHeader: "x-apisports-key",
+          endpoints: {
+            news: "/news",
+            fixtures: "/fixtures"
+          },
+          defaults: {
+            competitions: ["FIFA-WC"],
+            language: "en",
+            timezone: "UTC"
+          },
+          polling: {
+            intervalMinutes: 10,
+            timeoutMs: 12000
+          }
+        }
+      }
+    }
+  });
+
+  await prisma.featureConfig.upsert({
     where: { key: "referrals" },
     update: {},
     create: {
@@ -251,6 +281,39 @@ async function main() {
         });
       }
     }
+  }
+
+  const newsCount = await prisma.newsItem.count();
+  if (newsCount === 0) {
+    await prisma.newsItem.createMany({
+      data: [
+        {
+          provider: "seed",
+          providerItemId: "wc26-news-001",
+          title: "WC26 host cities finalize opening ceremony preparations",
+          summary: "Organizers confirmed final rehearsal plans for the first week of the tournament.",
+          url: "https://wc26nft.com/news/wc26-host-cities-opening-ceremony",
+          imageUrl: "https://wc26nft.com/assets/news/opening-ceremony.jpg",
+          sourceName: "WC26 Newsroom",
+          language: "en",
+          competition: "FIFA-WC",
+          publishedAt: new Date("2026-03-01T08:00:00Z")
+        },
+        {
+          provider: "seed",
+          providerItemId: "wc26-news-002",
+          title: "Qualification watch: top nations announce final squad shortlist",
+          summary: "Several federations released preliminary player lists ahead of warm-up friendlies.",
+          url: "https://wc26nft.com/news/qualification-watch-squad-shortlist",
+          imageUrl: "https://wc26nft.com/assets/news/squad-shortlist.jpg",
+          sourceName: "WC26 Newsroom",
+          language: "en",
+          competition: "FIFA-WC",
+          publishedAt: new Date("2026-03-02T12:30:00Z")
+        }
+      ],
+      skipDuplicates: true
+    });
   }
 
   console.log("Seed completed");

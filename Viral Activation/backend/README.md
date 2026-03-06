@@ -45,6 +45,8 @@ Fastify + TypeScript + Prisma + Redis backend cho WC26 NFT FANTASY admin.
 - `GET|POST /api/v1/pique/conversations`
 - `GET /api/v1/system/health`
 - `GET /api/v1/system/queue`
+- `GET /api/v1/system/news/status`
+- `POST /api/v1/system/news/sync`
 - `GET /api/v1/realtime/feed` (SSE)
 - `GET /api/v1/realtime/health` (SSE)
 - `GET /api/v1/realtime/queue` (SSE)
@@ -62,3 +64,4 @@ Fastify + TypeScript + Prisma + Redis backend cho WC26 NFT FANTASY admin.
 - `GET /api/v1/missions`
 - `POST /api/v1/missions/upsert`
 - `PATCH /api/v1/missions/:id/toggle`
+- `GET /api/v1/app/news`
