@@ -258,6 +258,12 @@
     timeoutMs: string;
   };
 
+  type FootballNewsApiProfile = {
+    id: string;
+    name: string;
+    value: FootballNewsApiForm;
+  };
+
   function defaultFootballNewsApiForm(): FootballNewsApiForm {
     return {
       enabled: false,
@@ -273,6 +279,25 @@
       pollMinutes: "10",
       timeoutMs: "12000"
     };
+  }
+
+  function cloneFootballNewsApiForm(form: FootballNewsApiForm): FootballNewsApiForm {
+    return { ...form };
+  }
+
+  function defaultFootballProfileName(provider: string): string {
+    const key = provider.trim().toLowerCase();
+    if (key === "api-football") return "API-Football";
+    if (key === "football-data") return "Football-Data";
+    if (key === "thesportsdb") return "TheSportsDB";
+    if (key === "openligadb") return "OpenLigaDB";
+    if (key === "sportmonks") return "SportMonks";
+    if (key === "custom") return "Custom API";
+    return provider.trim() || "API Profile";
+  }
+
+  function createFootballProfileId(): string {
+    return `api-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
   const footballProviderPresets: Record<string, Partial<FootballNewsApiForm>> = {
@@ -403,6 +428,157 @@
     };
   }
 
+  function normalizeFootballNewsApiForm(form: FootballNewsApiForm): FootballNewsApiForm {
+    const baseUrl = form.baseUrl.trim();
+    if (!baseUrl) {
+      throw new Error("Base URL is required");
+    }
+
+    let pollMinutes = Number(form.pollMinutes);
+    let timeoutMs = Number(form.timeoutMs);
+    if (!Number.isFinite(pollMinutes) || pollMinutes < 1) {
+      throw new Error("Poll interval must be >= 1 minute");
+    }
+    if (!Number.isFinite(timeoutMs) || timeoutMs < 1000) {
+      throw new Error("Timeout must be >= 1000 ms");
+    }
+    pollMinutes = Math.trunc(pollMinutes);
+    timeoutMs = Math.trunc(timeoutMs);
+
+    const competitions = form.competitions
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    return {
+      enabled: Boolean(form.enabled),
+      provider: form.provider.trim() || "custom",
+      baseUrl,
+      apiKey: form.apiKey.trim(),
+      keyHeader: form.keyHeader.trim() || "x-api-key",
+      newsPath: normalizePath(form.newsPath),
+      fixturesPath: normalizePath(form.fixturesPath),
+      competitions: competitions.join(","),
+      language: form.language.trim() || "en",
+      timezone: form.timezone.trim() || "UTC",
+      pollMinutes: String(pollMinutes),
+      timeoutMs: String(timeoutMs)
+    };
+  }
+
+  function footballFormToConfigNode(form: FootballNewsApiForm): Record<string, unknown> {
+    const competitions = form.competitions
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    return {
+      enabled: form.enabled,
+      provider: form.provider,
+      baseUrl: form.baseUrl,
+      apiKey: form.apiKey,
+      keyHeader: form.keyHeader,
+      endpoints: {
+        news: form.newsPath,
+        fixtures: form.fixturesPath
+      },
+      defaults: {
+        competitions,
+        language: form.language,
+        timezone: form.timezone
+      },
+      polling: {
+        intervalMinutes: Number(form.pollMinutes),
+        timeoutMs: Number(form.timeoutMs)
+      }
+    };
+  }
+
+  function parseFootballNewsApiProfiles(
+    config: Record<string, unknown>,
+    fallbackForm: FootballNewsApiForm
+  ): { profiles: FootballNewsApiProfile[]; activeId: string } {
+    const rawProfiles = Array.isArray(config.footballNewsProfiles) ? config.footballNewsProfiles : [];
+    const profiles = rawProfiles
+      .map((raw, idx) => {
+        const record = asRecord(raw);
+        const form = parseFootballNewsApiForm({ footballNews: record });
+        const id = asString(record.id, "").trim() || `api-${idx + 1}`;
+        const name = asString(record.name, "").trim() || defaultFootballProfileName(form.provider);
+        return {
+          id,
+          name,
+          value: form
+        };
+      })
+      .filter((profile) => profile.id.length > 0);
+
+    if (profiles.length === 0) {
+      const generatedId = createFootballProfileId();
+      const generatedProfile: FootballNewsApiProfile = {
+        id: generatedId,
+        name: defaultFootballProfileName(fallbackForm.provider),
+        value: cloneFootballNewsApiForm(fallbackForm)
+      };
+      return {
+        profiles: [generatedProfile],
+        activeId: generatedId
+      };
+    }
+
+    const configuredActiveId = asString(config.footballNewsActiveProfileId, "").trim();
+    const activeId = profiles.some((profile) => profile.id === configuredActiveId)
+      ? configuredActiveId
+      : profiles[0].id;
+
+    return { profiles, activeId };
+  }
+
+  function setActiveFootballNewsProfile(profileId: string) {
+    const selected = footballNewsProfiles.find((profile) => profile.id === profileId);
+    if (!selected) return;
+    footballNewsActiveProfileId = selected.id;
+    footballNewsProfileName = selected.name;
+    footballNewsApiForm = cloneFootballNewsApiForm(selected.value);
+  }
+
+  function addFootballNewsProfile() {
+    try {
+      const normalized = normalizeFootballNewsApiForm(footballNewsApiForm);
+      const profileId = createFootballProfileId();
+      const profileName = footballNewsProfileName.trim() || defaultFootballProfileName(normalized.provider);
+      footballNewsProfiles = [
+        ...footballNewsProfiles,
+        {
+          id: profileId,
+          name: profileName,
+          value: cloneFootballNewsApiForm(normalized)
+        }
+      ];
+      setActiveFootballNewsProfile(profileId);
+      showToast("API profile added. Click SAVE CONFIG to persist.");
+    } catch (e) {
+      error = (e as Error).message;
+    }
+  }
+
+  function deleteFootballNewsProfile() {
+    if (footballNewsProfiles.length <= 1) {
+      showToast("At least 1 API profile is required");
+      return;
+    }
+
+    const selected = footballNewsProfiles.find((profile) => profile.id === footballNewsActiveProfileId);
+    const targetName = selected?.name ?? "this profile";
+    const ok = window.confirm(`Delete API profile \"${targetName}\"?`);
+    if (!ok) return;
+
+    const nextProfiles = footballNewsProfiles.filter((profile) => profile.id !== footballNewsActiveProfileId);
+    footballNewsProfiles = nextProfiles;
+    setActiveFootballNewsProfile(nextProfiles[0].id);
+    showToast("API profile deleted. Click SAVE CONFIG to persist.");
+  }
+
   type SpinRewardConfig = {
     id: string;
     chance: string;
@@ -509,6 +685,9 @@
     pvpBurn: "500"
   };
   let footballNewsApiForm: FootballNewsApiForm = defaultFootballNewsApiForm();
+  let footballNewsProfiles: FootballNewsApiProfile[] = [];
+  let footballNewsActiveProfileId = "";
+  let footballNewsProfileName = "";
 
   let announcements: Announcement[] = [];
   let annTitle = "";
@@ -765,6 +944,9 @@
 
   function resetFootballNewsApiForm() {
     footballNewsApiForm = defaultFootballNewsApiForm();
+    if (!footballNewsProfileName.trim()) {
+      footballNewsProfileName = defaultFootballProfileName(footballNewsApiForm.provider);
+    }
   }
 
   function toSafeInt(value: string, fallback = 0): number {
@@ -1201,7 +1383,12 @@
 
   async function loadApiConfig() {
     const apiConfig = await withAccess((token) => getConfig(token, "api"));
-    footballNewsApiForm = parseFootballNewsApiForm(asRecord(apiConfig.value));
+    const rootConfig = asRecord(apiConfig.value);
+    const activeForm = parseFootballNewsApiForm(rootConfig);
+    const parsedProfiles = parseFootballNewsApiProfiles(rootConfig, activeForm);
+    footballNewsProfiles = parsedProfiles.profiles;
+    footballNewsActiveProfileId = parsedProfiles.activeId;
+    setActiveFootballNewsProfile(parsedProfiles.activeId);
   }
 
   async function loadAnnouncements() {
@@ -1517,58 +1704,59 @@
   }
 
   async function saveFootballNewsApiConfig() {
-    const baseUrl = footballNewsApiForm.baseUrl.trim();
-    if (!baseUrl) {
-      error = "Base URL is required";
-      return;
-    }
-    let pollMinutes = Number(footballNewsApiForm.pollMinutes);
-    let timeoutMs = Number(footballNewsApiForm.timeoutMs);
-    if (!Number.isFinite(pollMinutes) || pollMinutes < 1) {
-      error = "Poll interval must be >= 1 minute";
-      return;
-    }
-    if (!Number.isFinite(timeoutMs) || timeoutMs < 1000) {
-      error = "Timeout must be >= 1000 ms";
-      return;
-    }
-    pollMinutes = Math.trunc(pollMinutes);
-    timeoutMs = Math.trunc(timeoutMs);
-
-    const competitions = footballNewsApiForm.competitions
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean);
-
     loading = true;
     error = "";
     try {
+      const normalizedForm = normalizeFootballNewsApiForm(footballNewsApiForm);
+      const activeProfileId = footballNewsActiveProfileId || createFootballProfileId();
+      const activeProfileName = footballNewsProfileName.trim() || defaultFootballProfileName(normalizedForm.provider);
+      const nextProfiles =
+        footballNewsProfiles.length > 0
+          ? footballNewsProfiles.map((profile) =>
+              profile.id === activeProfileId
+                ? {
+                    ...profile,
+                    name: activeProfileName,
+                    value: cloneFootballNewsApiForm(normalizedForm)
+                  }
+                : profile
+            )
+          : [
+              {
+                id: activeProfileId,
+                name: activeProfileName,
+                value: cloneFootballNewsApiForm(normalizedForm)
+              }
+            ];
+      const hasActiveProfile = nextProfiles.some((profile) => profile.id === activeProfileId);
+      const normalizedProfiles = hasActiveProfile
+        ? nextProfiles
+        : [
+            ...nextProfiles,
+            {
+              id: activeProfileId,
+              name: activeProfileName,
+              value: cloneFootballNewsApiForm(normalizedForm)
+            }
+          ];
+
       const currentApiConfig = await withAccess((token) => getConfig(token, "api"));
       const currentValue = asRecord(currentApiConfig.value);
       const nextValue: Record<string, unknown> = {
         ...currentValue,
-        footballNews: {
-          enabled: footballNewsApiForm.enabled,
-          provider: footballNewsApiForm.provider.trim() || "custom",
-          baseUrl,
-          apiKey: footballNewsApiForm.apiKey.trim(),
-          keyHeader: footballNewsApiForm.keyHeader.trim() || "x-api-key",
-          endpoints: {
-            news: normalizePath(footballNewsApiForm.newsPath),
-            fixtures: normalizePath(footballNewsApiForm.fixturesPath)
-          },
-          defaults: {
-            competitions,
-            language: footballNewsApiForm.language.trim() || "en",
-            timezone: footballNewsApiForm.timezone.trim() || "UTC"
-          },
-          polling: {
-            intervalMinutes: pollMinutes,
-            timeoutMs
-          }
-        }
+        footballNews: footballFormToConfigNode(normalizedForm),
+        footballNewsActiveProfileId: activeProfileId,
+        footballNewsProfiles: normalizedProfiles.map((profile) => ({
+          id: profile.id,
+          name: profile.name,
+          ...footballFormToConfigNode(profile.value)
+        }))
       };
       await withAccess((token) => updateConfig(token, "api", nextValue));
+      footballNewsProfiles = normalizedProfiles;
+      footballNewsActiveProfileId = activeProfileId;
+      footballNewsProfileName = activeProfileName;
+      footballNewsApiForm = cloneFootballNewsApiForm(normalizedForm);
       showToast("Football API config saved");
       await loadApiConfig();
     } catch (e) {
@@ -1712,6 +1900,9 @@
     socialChannelsTotal = 0;
     resetSocialChannelForm();
     resetFootballNewsApiForm();
+    footballNewsProfiles = [];
+    footballNewsActiveProfileId = "";
+    footballNewsProfileName = "";
     liveFeed = [];
   }
 
@@ -2751,6 +2942,32 @@
               </div>
             </div>
             <div class="sec-body" style="display:grid;gap:8px">
+              <div style="display:grid;grid-template-columns:2fr 2fr auto;gap:8px;align-items:end">
+                <div class="form-g" style="margin:0">
+                  <label for="football-profile-select">API Profile</label>
+                  <select
+                    id="football-profile-select"
+                    class="inp"
+                    bind:value={footballNewsActiveProfileId}
+                    on:change={() => setActiveFootballNewsProfile(footballNewsActiveProfileId)}
+                  >
+                    {#each footballNewsProfiles as profile}
+                      <option value={profile.id}>{profile.name}</option>
+                    {/each}
+                  </select>
+                </div>
+                <div class="form-g" style="margin:0">
+                  <label for="football-profile-name">Profile Name</label>
+                  <input id="football-profile-name" class="inp" bind:value={footballNewsProfileName} placeholder="API profile name" />
+                </div>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <button class="btn btn-ghost btn-sm" on:click={addFootballNewsProfile}>ADD API</button>
+                  <button class="btn btn-ghost btn-sm" style="border-color:var(--red);color:var(--red)" on:click={deleteFootballNewsProfile}>
+                    DELETE API
+                  </button>
+                </div>
+              </div>
+
               <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;align-items:center">
                 <div class="form-g" style="margin:0">
                   <label for="football-provider">Provider</label>
