@@ -31,6 +31,17 @@ Fastify + TypeScript + Prisma + Redis backend cho WC26 NFT FANTASY admin.
 6. Chạy dev:
    - `npm run dev --workspace backend`
 
+## User Game API (integrated)
+
+User mini-game API đã được tích hợp thẳng vào Fastify backend (không chạy server riêng):
+
+- `src/modules/app-game/constants.ts`: hằng số và quiz bank.
+- `src/modules/app-game/state.ts`: game state + reward logic.
+- `src/modules/app-game/store.ts`: load/persist session state qua Prisma.
+- `src/modules/app-game/routes.ts`: endpoint Spin/Quiz/Penalty/Earn/Referral/Session.
+
+State user được lưu trong DB (`AppGameState`) + đồng bộ `AppUser.kick` + ghi `KickLedger`.
+
 ## Sync World Cup fixtures from WC26 static source
 
 - Kiểm tra dữ liệu trước (không ghi DB):
@@ -76,3 +87,19 @@ Fastify + TypeScript + Prisma + Redis backend cho WC26 NFT FANTASY admin.
 - `POST /api/v1/missions/upsert`
 - `PATCH /api/v1/missions/:id/toggle`
 - `GET /api/v1/app/news`
+- `POST /api/session/init`
+- `POST /api/session/sync`
+- `GET /api/spin/state`
+- `POST /api/spin/unlock`
+- `POST /api/spin/roll`
+- `GET /api/quiz/daily`
+- `POST /api/quiz/answer`
+- `POST /api/quiz/finalize`
+- `GET /api/penalty/daily`
+- `POST /api/penalty/start`
+- `POST /api/penalty/shot`
+- `POST /api/penalty/finalize`
+- `GET /api/earn/tasks/state`
+- `POST /api/earn/tasks/claim`
+- `GET /api/referral/state`
+- `POST /api/referral/boost`

@@ -1,0 +1,180 @@
+<script lang="ts">
+  import { onDestroy } from "svelte";
+  import { EARN_TASKS, EARN_TASK_CAP, EARN_TASK_CATEGORIES } from "../modules/earn/data";
+  import { toneButtonClass } from "../modules/earn/utils";
+  import { earnStore } from "../stores/earn.store";
+  import { sessionStore } from "../stores/session.store";
+  import type { EarnTask } from "../modules/earn/types";
+  import type { AppPage } from "../stores/ui.store";
+
+  export let onNavigate: (page: AppPage) => void = () => {};
+
+  let flashMessage = "";
+  let flashTimer: ReturnType<typeof setTimeout> | null = null;
+  let initSessionToken = "";
+
+  $: sessionId = $sessionStore.sessionId;
+  $: {
+    const token = sessionId ?? "guest";
+    if (token !== initSessionToken) {
+      initSessionToken = token;
+      void earnStore.init(sessionId, true);
+    }
+  }
+
+  $: claimedTaskSet = new Set($earnStore.claimedTaskIds);
+  $: taskDoneCount = $earnStore.claimedTaskIds.length;
+  $: taskTotal = EARN_TASKS.length;
+  $: progressPct = taskTotal > 0 ? Math.round((taskDoneCount / taskTotal) * 100) : 0;
+  $: earnRingOffset = 220 * (1 - Math.min(100, progressPct) / 100);
+
+  $: groupedTasks = EARN_TASK_CATEGORIES.map((category) => ({
+    ...category,
+    tasks: EARN_TASKS.filter((task) => task.categoryId === category.id)
+  }));
+
+  async function claim(task: EarnTask): Promise<void> {
+    const result = await earnStore.claimTask(sessionId, task);
+    flashMessage = result.message;
+
+    if (flashTimer) {
+      clearTimeout(flashTimer);
+    }
+
+    flashTimer = setTimeout(() => {
+      flashMessage = "";
+    }, 1800);
+  }
+
+  async function activateRefBoost(): Promise<void> {
+    await earnStore.boostReferral(sessionId, 3);
+    flashMessage = "🚀 Referral boost synced.";
+
+    if (flashTimer) {
+      clearTimeout(flashTimer);
+    }
+
+    flashTimer = setTimeout(() => {
+      flashMessage = "";
+    }, 1800);
+  }
+
+  onDestroy(() => {
+    if (flashTimer) {
+      clearTimeout(flashTimer);
+      flashTimer = null;
+    }
+  });
+</script>
+
+<div id="page-earn" class="pg on">
+  <div class="earn-top">
+    <div class="earn-title">🎁 Engage & Earn</div>
+    <div class="earn-sub">Like. Share. Dominate. Earn KICK. Unlock allocation. Claim game rewards.</div>
+  </div>
+
+  <div style="text-align:center">
+    <div style="position:relative;width:84px;height:84px;margin:9px auto 4px">
+      <svg width="84" height="84" viewBox="0 0 84 84" style="transform:rotate(-90deg)">
+        <circle cx="42" cy="42" r="35" fill="none" stroke="#172635" stroke-width="6" />
+        <circle
+          cx="42"
+          cy="42"
+          r="35"
+          fill="none"
+          stroke="url(#earng)"
+          stroke-width="6"
+          stroke-dasharray="220"
+          stroke-dashoffset={earnRingOffset}
+          stroke-linecap="round"
+        />
+        <defs>
+          <linearGradient id="earng" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#F5C542" />
+            <stop offset="100%" stop-color="#1FBF6A" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column">
+        <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:18px;color:var(--y)">{progressPct}%</div>
+        <div style="font-size:7px;color:var(--gr)">complete</div>
+      </div>
+    </div>
+
+    <div style="font-size:10.5px;color:var(--gr);margin-bottom:11px">
+      <span>{taskDoneCount}</span> of <span>{taskTotal}</span> tasks ·
+      <span style="color:var(--y);font-family:'JetBrains Mono',monospace">{Math.min(EARN_TASK_CAP, $earnStore.claimedKick).toLocaleString("en-US")} / {EARN_TASK_CAP.toLocaleString("en-US")} KICK</span>
+    </div>
+  </div>
+
+  <div class="card acc-g">
+    <div class="info-head">🎮 Daily Games</div>
+    <div class="info-list">
+      <div class="info-item">
+        <strong style="color:var(--pw)">⚽ Penalty Challenge</strong><br />
+        3 free/day, then 500 KICK per extra match. Win up to 2,000 KICK.
+      </div>
+      <div class="info-item">
+        <strong style="color:var(--pw)">🎯 Extra Spin Unlock</strong><br />
+        1 free spin/day. Invite 1 participant or share WAR ranking to unlock extra spins.
+      </div>
+    </div>
+    <div class="info-actions-grid">
+      <button class="btn b-g" type="button" on:click={() => onNavigate("wars")}>OPEN WARS</button>
+      <button class="btn b-y" type="button" on:click={() => onNavigate("spin")}>OPEN SPIN</button>
+    </div>
+  </div>
+
+  <div class="ref-box" id="earn-ref-box">
+    <div class="ref-title">👥 Referral Box</div>
+    <div class="ref-sub">Invite friends to increase your nation momentum and unlock more daily spins.</div>
+    <div class="ref-stats">
+      <div class="rs"><div class="rv">{$earnStore.referral.boostMult}x</div><div class="rl">Referral Boost</div></div>
+      <div class="rs"><div class="rv">{$sessionStore.spin.left}</div><div class="rl">Spin Left</div></div>
+    </div>
+    <div class="info-actions-grid">
+      <button class="btn b-gh" type="button" on:click={activateRefBoost} disabled={$earnStore.isBoosting}>
+        {$earnStore.isBoosting ? "SYNCING..." : "ACTIVATE 3X"}
+      </button>
+      <button class="btn b-g" type="button" on:click={() => onNavigate("spin")}>GO TO SPIN</button>
+    </div>
+  </div>
+
+  {#each groupedTasks as category}
+    <div class="tcat">
+      <div class="tcat-hdr">
+        <div class={`tci tc${category.tone}`}>{category.icon}</div>
+        <div class="tcn">{category.title}</div>
+        <div class="tcp">{category.totalLabel}</div>
+      </div>
+
+      {#each category.tasks as task}
+        <div class={`task ${claimedTaskSet.has(task.id) ? "done" : ""}`}>
+          <div class="task-ic">{task.icon}</div>
+          <div class="task-info">
+            <div class="task-nm">{task.name}</div>
+            <div class="task-ds">{task.description}</div>
+          </div>
+          <div class="task-r">
+            <div class="task-pts">+{task.points.toLocaleString("en-US")}</div>
+            {#if claimedTaskSet.has(task.id)}
+              <div class="task-di">✅</div>
+            {:else}
+              <button class={`tbtn ${toneButtonClass(task.tone)}`} type="button" on:click={() => claim(task)}>
+                {task.actionLabel}
+              </button>
+            {/if}
+          </div>
+        </div>
+      {/each}
+    </div>
+  {/each}
+
+  {#if flashMessage}
+    <div class="earn-flash">{flashMessage}</div>
+  {/if}
+
+  {#if $earnStore.errorMessage}
+    <div class="earn-error">{$earnStore.errorMessage}</div>
+  {/if}
+</div>

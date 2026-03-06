@@ -22,20 +22,20 @@ enum UserStatus {
 }
 
 model BoardMember {
-  id           String         @id @default(cuid())
-  telegramId   String         @unique
-  username     String
-  displayName  String
-  role         AdminRole
-  requiresTotp Boolean        @default(false)
-  totpSecret   String?
-  isActive     Boolean        @default(true)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  sessions     AdminSession[]
-  kickLedgers  KickLedger[]
+  id            String         @id @default(cuid())
+  telegramId    String         @unique
+  username      String
+  displayName   String
+  role          AdminRole
+  requiresTotp  Boolean        @default(false)
+  totpSecret    String?
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  sessions      AdminSession[]
+  kickLedgers   KickLedger[]
   announcements Announcement[]
-  audits       AuditLog[]
+  audits        AuditLog[]
 }
 
 model AdminSession {
@@ -53,31 +53,43 @@ model AdminSession {
 }
 
 model AppUser {
-  id               String           @id @default(cuid())
-  telegramId       String?          @unique
+  id               String            @id @default(cuid())
+  telegramId       String?           @unique
   username         String?
-  nationCode       String           @default("VN")
-  status           UserStatus       @default(active)
-  kick             Int              @default(0)
-  mysteryTickets   Int              @default(0)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  nationCode       String            @default("VN")
+  status           UserStatus        @default(active)
+  kick             Int               @default(0)
+  mysteryTickets   Int               @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  gameState        AppGameState?
   ledgers          KickLedger[]
-  referralsSent    ReferralEvent[]  @relation("ReferralInviter")
-  referredByEvents ReferralEvent[]  @relation("ReferralInvitee")
+  referralsSent    ReferralEvent[]   @relation("ReferralInviter")
+  referredByEvents ReferralEvent[]   @relation("ReferralInvitee")
   missions         MissionProgress[]
 }
 
+model AppGameState {
+  userId    String   @id
+  sessionId String   @unique
+  state     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      AppUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([updatedAt])
+}
+
 model KickLedger {
-  id          String      @id @default(cuid())
-  userId       String
-  delta        Int
-  reason       String
-  source       String
-  actorId      String?
-  createdAt    DateTime   @default(now())
-  user         AppUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  actor        BoardMember? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  id        String       @id @default(cuid())
+  userId    String
+  delta     Int
+  reason    String
+  source    String
+  actorId   String?
+  createdAt DateTime     @default(now())
+  user      AppUser      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actor     BoardMember? @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([createdAt])
@@ -91,12 +103,12 @@ model FeatureConfig {
 }
 
 model Announcement {
-  id          String      @id @default(cuid())
+  id          String       @id @default(cuid())
   title       String
   message     String
-  target      String      @default("all")
+  target      String       @default("all")
   createdById String?
-  createdAt   DateTime    @default(now())
+  createdAt   DateTime     @default(now())
   publishedAt DateTime?
   createdBy   BoardMember? @relation(fields: [createdById], references: [id], onDelete: SetNull)
 }
@@ -116,7 +128,7 @@ model PiqueConversation {
 }
 
 model AuditLog {
-  id         String      @id @default(cuid())
+  id         String       @id @default(cuid())
   actorId    String?
   actorRole  AdminRole?
   action     String
@@ -126,7 +138,7 @@ model AuditLog {
   before     Json?
   after      Json?
   ipAddress  String?
-  createdAt  DateTime    @default(now())
+  createdAt  DateTime     @default(now())
   actor      BoardMember? @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
@@ -134,18 +146,18 @@ model AuditLog {
 }
 
 model ReferralEvent {
-  id               String    @id @default(cuid())
-  inviterUserId    String
-  invitedUserId    String?
+  id                String   @id @default(cuid())
+  inviterUserId     String
+  invitedUserId     String?
   invitedTelegramId String?
-  level            Int       @default(1)
-  status           String    @default("registered")
-  season           String    @default("S1")
-  kickAward        Int       @default(0)
-  riskScore        Int       @default(0)
-  createdAt        DateTime  @default(now())
-  inviter          AppUser   @relation("ReferralInviter", fields: [inviterUserId], references: [id], onDelete: Cascade)
-  invited          AppUser?  @relation("ReferralInvitee", fields: [invitedUserId], references: [id], onDelete: SetNull)
+  level             Int      @default(1)
+  status            String   @default("registered")
+  season            String   @default("S1")
+  kickAward         Int      @default(0)
+  riskScore         Int      @default(0)
+  createdAt         DateTime @default(now())
+  inviter           AppUser  @relation("ReferralInviter", fields: [inviterUserId], references: [id], onDelete: Cascade)
+  invited           AppUser? @relation("ReferralInvitee", fields: [invitedUserId], references: [id], onDelete: SetNull)
 
   @@index([inviterUserId, createdAt])
   @@index([status, createdAt])
