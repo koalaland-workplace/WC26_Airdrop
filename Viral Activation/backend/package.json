@@ -10,7 +10,8 @@
     "check": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev --name init",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "sync:fixtures:wc26": "node scripts/sync-wc26-fixtures.mjs"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.1",

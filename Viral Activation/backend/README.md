@@ -31,6 +31,17 @@ Fastify + TypeScript + Prisma + Redis backend cho WC26 NFT FANTASY admin.
 6. Chạy dev:
    - `npm run dev --workspace backend`
 
+## Sync World Cup fixtures from WC26 static source
+
+- Kiểm tra dữ liệu trước (không ghi DB):
+  - `npm run sync:fixtures:wc26 --workspace backend -- --dry-run`
+- Đồng bộ vào DB (upsert theo `groupCode + home/away + kickoffAt`):
+  - `npm run sync:fixtures:wc26 --workspace backend`
+- Ép thay thế toàn bộ fixtures của các bảng import (A-L + knockout):
+  - `npm run sync:fixtures:wc26 --workspace backend -- --replace`
+- Dùng URL khác:
+  - `npm run sync:fixtures:wc26 --workspace backend -- --url https://example.com`
+
 ## Important endpoints
 
 - `POST /api/v1/auth/telegram/login`
