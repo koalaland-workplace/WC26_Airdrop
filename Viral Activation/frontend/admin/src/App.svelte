@@ -3413,8 +3413,8 @@
                 </div>
               </div>
 
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                <div style="display:grid;gap:8px">
+              <div class="rules-workspace">
+                <div class="rules-editor-pane">
                   <input
                     class="inp"
                     placeholder="Rules title"
