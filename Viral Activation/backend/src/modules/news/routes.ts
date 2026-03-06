@@ -136,6 +136,14 @@ function firstDate(record: Record<string, unknown>, paths: string[]): Date | nul
   for (const path of paths) {
     const value = firstString(record, [path]);
     if (!value) continue;
+    if (/^\d+$/.test(value)) {
+      const epoch = Number(value);
+      if (Number.isFinite(epoch)) {
+        const epochMs = epoch > 1e12 ? epoch : epoch * 1000;
+        const fromEpoch = new Date(epochMs);
+        if (!Number.isNaN(fromEpoch.getTime())) return fromEpoch;
+      }
+    }
     const parsed = new Date(value);
     if (!Number.isNaN(parsed.getTime())) return parsed;
   }
@@ -148,6 +156,29 @@ function firstNumber(record: Record<string, unknown>, paths: string[]): number |
     if (!value) continue;
     const parsed = Number(value);
     if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function firstBoolean(record: Record<string, unknown>, paths: string[]): boolean | null {
+  for (const path of paths) {
+    const segments = path.split(".");
+    let cursor: unknown = record;
+    let missing = false;
+    for (const segment of segments) {
+      if (!isRecord(cursor) || !(segment in cursor)) {
+        missing = true;
+        break;
+      }
+      cursor = cursor[segment];
+    }
+    if (missing || cursor === undefined || cursor === null) continue;
+    if (typeof cursor === "boolean") return cursor;
+    if (typeof cursor === "string") {
+      const text = cursor.trim().toLowerCase();
+      if (text === "true") return true;
+      if (text === "false") return false;
+    }
   }
   return null;
 }
@@ -167,6 +198,9 @@ function parseGroupCode(rawValue: string | null): string {
 }
 
 function normalizeFixtureStatus(raw: Record<string, unknown>): string {
+  const explicitFinished = firstBoolean(raw, ["matchIsFinished", "fixture.status.finished"]);
+  if (explicitFinished === true) return "finished";
+
   const short = (firstString(raw, ["status.short", "fixture.status.short"]) ?? "").toUpperCase();
   const long = (firstString(raw, ["status.long", "fixture.status.long", "status"]) ?? "").toLowerCase();
   const finishedShort = new Set(["FT", "AET", "PEN"]);
@@ -189,6 +223,9 @@ function extractArray(payload: unknown): Record<string, unknown>[] {
 
   const candidates: unknown[] = [
     payload.response,
+    payload.matches,
+    payload.events,
+    payload.fixtures,
     payload.articles,
     payload.items,
     payload.news,
@@ -250,29 +287,97 @@ function normalizeNewsRecord(raw: Record<string, unknown>, config: FootballNewsC
 }
 
 function normalizeFixtureRecord(raw: Record<string, unknown>, config: FootballNewsConfig): NormalizedFixtureItem | null {
-  const homeNation = firstString(raw, ["teams.home.name", "homeTeam.name", "home.name", "home_team", "home"]);
-  const awayNation = firstString(raw, ["teams.away.name", "awayTeam.name", "away.name", "away_team", "away"]);
+  const homeNation = firstString(raw, [
+    "teams.home.name",
+    "homeTeam.name",
+    "home.name",
+    "home_team",
+    "home",
+    "team1.teamName",
+    "Team1.TeamName",
+    "strHomeTeam"
+  ]);
+  const awayNation = firstString(raw, [
+    "teams.away.name",
+    "awayTeam.name",
+    "away.name",
+    "away_team",
+    "away",
+    "team2.teamName",
+    "Team2.TeamName",
+    "strAwayTeam"
+  ]);
   const kickoffAt =
-    firstDate(raw, ["fixture.date", "kickoff", "kickoffAt", "startTime", "date", "datetime"]) ?? null;
+    firstDate(raw, [
+      "fixture.date",
+      "kickoff",
+      "kickoffAt",
+      "startTime",
+      "date",
+      "datetime",
+      "utcDate",
+      "matchDateTimeUTC",
+      "matchDateTime",
+      "strTimestamp"
+    ]) ?? null;
 
   if (!homeNation || !awayNation || !kickoffAt) return null;
 
   const rawGroup =
-    firstString(raw, ["league.round", "round", "stage", "group", "groupCode", "competition.name"]) ??
+    firstString(raw, [
+      "league.round",
+      "round",
+      "stage",
+      "group",
+      "groupCode",
+      "competition.name",
+      "group.groupName",
+      "Group.GroupName",
+      "leagueShortcut",
+      "league.name"
+    ]) ??
     config.defaults.competitions[0] ??
     "A";
 
   const providerFixtureId =
-    firstString(raw, ["fixture.id", "id", "fixture_id", "match_id", "event_key"]) ??
+    firstString(raw, ["fixture.id", "id", "fixture_id", "match_id", "event_key", "matchID", "idEvent"]) ??
     createHash("sha1")
       .update(`${config.provider}:${homeNation}:${awayNation}:${kickoffAt.toISOString()}`)
       .digest("hex");
 
-  const stadium = firstString(raw, ["fixture.venue.name", "venue.name", "stadium", "ground"]) ?? "TBD";
-  const city = firstString(raw, ["fixture.venue.city", "venue.city", "city"]);
-  const homeScore = firstNumber(raw, ["goals.home", "score.fulltime.home", "scores.home", "homeScore"]);
-  const awayScore = firstNumber(raw, ["goals.away", "score.fulltime.away", "scores.away", "awayScore"]);
-  const highlight = firstString(raw, ["fixture.status.long", "status.long", "league.round", "round"]);
+  const stadium =
+    firstString(raw, ["fixture.venue.name", "venue.name", "stadium", "ground", "location.locationStadium"]) ?? "TBD";
+  const city = firstString(raw, ["fixture.venue.city", "venue.city", "city", "location.locationCity"]);
+  const homeScore = firstNumber(raw, [
+    "goals.home",
+    "score.fulltime.home",
+    "score.fullTime.home",
+    "score.fullTime.homeTeam",
+    "scores.home",
+    "homeScore",
+    "intHomeScore",
+    "team1.teamScore",
+    "Team1.Score"
+  ]);
+  const awayScore = firstNumber(raw, [
+    "goals.away",
+    "score.fulltime.away",
+    "score.fullTime.away",
+    "score.fullTime.awayTeam",
+    "scores.away",
+    "awayScore",
+    "intAwayScore",
+    "team2.teamScore",
+    "Team2.Score"
+  ]);
+  const highlight = firstString(raw, [
+    "fixture.status.long",
+    "status.long",
+    "league.round",
+    "round",
+    "group.groupName",
+    "Group.GroupName"
+  ]);
 
   return {
     providerFixtureId: clampText(providerFixtureId, 120, providerFixtureId),

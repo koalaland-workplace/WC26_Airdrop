@@ -275,6 +275,91 @@
     };
   }
 
+  const footballProviderPresets: Record<string, Partial<FootballNewsApiForm>> = {
+    "api-football": {
+      provider: "api-football",
+      baseUrl: "https://v3.football.api-sports.io",
+      keyHeader: "x-apisports-key",
+      newsPath: "/news",
+      fixturesPath: "/fixtures?league=1&season=2022&timezone=UTC",
+      competitions: "FIFA-WC",
+      language: "en",
+      timezone: "UTC",
+      pollMinutes: "10",
+      timeoutMs: "12000"
+    },
+    "football-data": {
+      provider: "football-data",
+      baseUrl: "https://api.football-data.org/v4",
+      keyHeader: "X-Auth-Token",
+      newsPath: "/competitions/WC/matches?season=2022",
+      fixturesPath: "/competitions/WC/matches?season=2022",
+      competitions: "WC",
+      language: "en",
+      timezone: "UTC",
+      pollMinutes: "15",
+      timeoutMs: "12000"
+    },
+    thesportsdb: {
+      provider: "thesportsdb",
+      baseUrl: "https://www.thesportsdb.com/api/v1/json/3",
+      keyHeader: "x-api-key",
+      newsPath: "/eventsseason.php?id=4429&s=2022",
+      fixturesPath: "/eventsseason.php?id=4429&s=2022",
+      competitions: "FIFA-WC",
+      language: "en",
+      timezone: "UTC",
+      pollMinutes: "20",
+      timeoutMs: "12000"
+    },
+    openligadb: {
+      provider: "openligadb",
+      baseUrl: "https://api.openligadb.de",
+      keyHeader: "x-api-key",
+      newsPath: "/getmatchdata/wm2022",
+      fixturesPath: "/getmatchdata/wm2022",
+      competitions: "WM2022",
+      language: "de",
+      timezone: "UTC",
+      pollMinutes: "20",
+      timeoutMs: "12000"
+    },
+    sportmonks: {
+      provider: "sportmonks",
+      baseUrl: "https://api.sportmonks.com/v3/football",
+      keyHeader: "Authorization",
+      newsPath: "/news",
+      fixturesPath: "/fixtures",
+      competitions: "world-cup",
+      language: "en",
+      timezone: "UTC",
+      pollMinutes: "10",
+      timeoutMs: "12000"
+    },
+    custom: {
+      provider: "custom",
+      baseUrl: "",
+      keyHeader: "x-api-key",
+      newsPath: "/news",
+      fixturesPath: "/fixtures",
+      competitions: "FIFA-WC",
+      language: "en",
+      timezone: "UTC",
+      pollMinutes: "10",
+      timeoutMs: "12000"
+    }
+  };
+
+  function applyFootballProviderPreset(provider: string) {
+    const preset = footballProviderPresets[provider];
+    if (!preset) return;
+    footballNewsApiForm = {
+      ...footballNewsApiForm,
+      ...preset,
+      provider
+    };
+  }
+
   function asRecord(value: unknown): Record<string, unknown> {
     return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
   }
@@ -2660,6 +2745,7 @@
               <div class="sec-title"><div class="sec-dot y"></div>Football News API Integration</div>
               <div style="display:flex;gap:8px">
                 <button class="btn btn-ghost btn-sm" on:click={loadApiConfig}>RELOAD</button>
+                <button class="btn btn-ghost btn-sm" on:click={() => applyFootballProviderPreset(footballNewsApiForm.provider)}>LOAD PRESET</button>
                 <button class="btn btn-ghost btn-sm" on:click={resetFootballNewsApiForm}>RESET DEFAULT</button>
                 <button class="btn btn-g btn-sm" on:click={saveFootballNewsApiConfig}>SAVE CONFIG</button>
               </div>
@@ -2668,9 +2754,11 @@
               <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;align-items:center">
                 <div class="form-g" style="margin:0">
                   <label for="football-provider">Provider</label>
-                  <select id="football-provider" class="inp" bind:value={footballNewsApiForm.provider}>
+                  <select id="football-provider" class="inp" bind:value={footballNewsApiForm.provider} on:change={() => applyFootballProviderPreset(footballNewsApiForm.provider)}>
                     <option value="api-football">API-Football</option>
                     <option value="football-data">Football-Data</option>
+                    <option value="thesportsdb">TheSportsDB (free)</option>
+                    <option value="openligadb">OpenLigaDB (free)</option>
                     <option value="sportmonks">SportMonks</option>
                     <option value="custom">Custom</option>
                   </select>
