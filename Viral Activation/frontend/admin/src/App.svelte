@@ -907,9 +907,16 @@
     return new Date(localMs).toISOString().slice(0, 16);
   }
 
-  function parseOptionalInt(value: string, field: string): number | undefined {
-    if (!value.trim()) return undefined;
-    const parsed = Number(value);
+  function asText(value: unknown): string {
+    if (typeof value === "string") return value;
+    if (value === null || value === undefined) return "";
+    return String(value);
+  }
+
+  function parseOptionalInt(value: unknown, field: string): number | undefined {
+    const normalized = asText(value).trim();
+    if (!normalized) return undefined;
+    const parsed = Number(normalized);
     if (!Number.isFinite(parsed)) {
       throw new Error(`Invalid number in ${field}`);
     }
@@ -1713,11 +1720,17 @@
   }
 
   async function submitMission() {
-    if (!missionForm.code.trim() || !missionForm.name.trim() || !missionForm.rewardKick.trim()) {
+    const code = asText(missionForm.code).trim();
+    const name = asText(missionForm.name).trim();
+    const phase = asText(missionForm.phase).trim() || "Viral Activation";
+    const category = asText(missionForm.category).trim() || "daily";
+    const rewardKickRaw = asText(missionForm.rewardKick).trim();
+
+    if (!code || !name || !rewardKickRaw) {
       error = "Please fill required mission fields";
       return;
     }
-    const rewardKick = Number(missionForm.rewardKick);
+    const rewardKick = Number(rewardKickRaw);
     if (!Number.isFinite(rewardKick) || rewardKick < 0) {
       error = "Invalid reward KICK";
       return;
@@ -1729,10 +1742,10 @@
       await withAccess((token) =>
         upsertMission(token, {
           id: missionForm.id || undefined,
-          code: missionForm.code.trim(),
-          name: missionForm.name.trim(),
-          phase: missionForm.phase.trim() || "Viral Activation",
-          category: missionForm.category.trim() || "daily",
+          code,
+          name,
+          phase,
+          category,
           rewardKick: Math.trunc(rewardKick),
           capPerDay: parseOptionalInt(missionForm.capPerDay, "cap per day"),
           isActive: missionForm.isActive
