@@ -855,8 +855,8 @@
       label: "Rookie",
       minKick: 0,
       kickRangeLabel: "0 - 25,000 KICK",
-      bonusLabel: "-",
-      rightsLabel: "Whitelist access · 2.5% discount · Max 25 boxes",
+      bonusLabel: "",
+      rightsLabel: "2.5% discount · Max 25 boxes",
       maxPerUser: 25,
       gameplayLabel: "+1 Daily Lucky Spin",
       rewardsLabel: "Rookie badge",
@@ -867,11 +867,11 @@
       label: "Starter",
       minKick: 25_000,
       kickRangeLabel: "25,000 - 100,000 KICK",
-      bonusLabel: "-",
-      rightsLabel: "Whitelist · 5% discount · Max 25 boxes",
+      bonusLabel: "",
+      rightsLabel: "5% discount · Max 25 boxes",
       maxPerUser: 25,
-      gameplayLabel: "+2 Lucky Spins/day · +10% KICK bonus Quiz",
-      rewardsLabel: "1 Rising Box lottery ticket · Starter badge",
+      gameplayLabel: "+2 Lucky Spins/day",
+      rewardsLabel: "Starter badge · 1 Rising Box lottery ticket",
       defaultTotalBoxes: 25_000
     },
     {
@@ -882,8 +882,8 @@
       bonusLabel: "2,000 KICK",
       rightsLabel: "VIP whitelist · 10% discount · Max 20 boxes",
       maxPerUser: 20,
-      gameplayLabel: "+3 Lucky Spins/day · +15% KICK bonus games",
-      rewardsLabel: "2 Rising Box lottery ticket · Pro badge",
+      gameplayLabel: "+3 Lucky Spins/day",
+      rewardsLabel: "Pro badge · 2 Rising Box lottery ticket",
       defaultTotalBoxes: 5_000
     },
     {
@@ -894,8 +894,8 @@
       bonusLabel: "5,000 KICK",
       rightsLabel: "VIP whitelist · 12.5% discount · Max 15 boxes",
       maxPerUser: 15,
-      gameplayLabel: "+4 Lucky Spins/day · +20% KICK bonus",
-      rewardsLabel: "1 Rising Box guaranteed · Champion badge",
+      gameplayLabel: "+4 Lucky Spins/day",
+      rewardsLabel: "Champion badge · 1 Rising Box guaranteed",
       defaultTotalBoxes: 2_500
     },
     {
@@ -906,8 +906,8 @@
       bonusLabel: "10,000 KICK",
       rightsLabel: "VIP whitelist · 15% discount · Max 12 boxes",
       maxPerUser: 12,
-      gameplayLabel: "+5 Lucky Spins/day · +25% KICK bonus",
-      rewardsLabel: "1 Elite Box guaranteed · Master badge",
+      gameplayLabel: "+5 Lucky Spins/day",
+      rewardsLabel: "Master badge · 1 Elite Box guaranteed",
       defaultTotalBoxes: 2_000
     },
     {
@@ -918,8 +918,8 @@
       bonusLabel: "25,000 KICK",
       rightsLabel: "Ultra VIP whitelist · 20% discount · Max 10 boxes",
       maxPerUser: 10,
-      gameplayLabel: "+6 Lucky Spins/day · +30% KICK bonus",
-      rewardsLabel: "1 Legacy Mystery Box guaranteed · Hall of Fame leaderboard · Legend badge",
+      gameplayLabel: "+6 Lucky Spins/day",
+      rewardsLabel: "Legend badge · 1 Legacy Mystery Box guaranteed · Hall of Fame leaderboard",
       defaultTotalBoxes: 1_000
     }
   ];
@@ -3513,6 +3513,9 @@
                       <div>
                         <div class="mb-tier-name" style="font-size:16px;margin:0">{tierLabel(row.tier)}</div>
                         <div class="mb-tier-policy">{tierRightsLabel(row.tier)}</div>
+                        {#if tierBonusLabel(row.tier).trim()}
+                          <div class="mb-tier-policy">Upgrade Bonus: {tierBonusLabel(row.tier)}</div>
+                        {/if}
                         <div class="mb-tier-policy">Gameplay: {tierGameplayLabel(row.tier)}</div>
                         <div class="mb-tier-policy">Exclusive: {tierRewardsLabel(row.tier)}</div>
                       </div>
@@ -3545,10 +3548,12 @@
                         <label for={`mb-max-${row.tier}`}>Max Per User (fixed)</label>
                         <input id={`mb-max-${row.tier}`} class="inp" value={String(tierMaxPerUser(row.tier))} readonly />
                       </div>
-                      <div class="form-g" style="margin:0">
-                        <label for={`mb-bonus-${row.tier}`}>Tier Upgrade Bonus (fixed)</label>
-                        <input id={`mb-bonus-${row.tier}`} class="inp" value={tierBonusLabel(row.tier)} readonly />
-                      </div>
+                      {#if tierBonusLabel(row.tier).trim()}
+                        <div class="form-g" style="margin:0">
+                          <label for={`mb-bonus-${row.tier}`}>Tier Upgrade Bonus (fixed)</label>
+                          <input id={`mb-bonus-${row.tier}`} class="inp" value={tierBonusLabel(row.tier)} readonly />
+                        </div>
+                      {/if}
                     </div>
                   </div>
                 {/each}

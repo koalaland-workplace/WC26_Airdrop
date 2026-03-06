@@ -92,15 +92,18 @@
   </div>
 
   <div class="card acc-y home-tier-card">
-    <div class="home-tier-title">2.4 Tiers & Mystery Boxes</div>
-    <div class="home-tier-sub">Your total KICK at snapshot determines your tier and Mystery Box rights:</div>
+    <div class="home-tier-title">2.4 Tiers & Benefits</div>
+    <div class="home-tier-sub">Your total KICK at snapshot determines your Tier and Benefits:</div>
     {#each TIER_POLICY as tier}
       <div class="home-tier-row">
-        <div class="home-tier-row-head">{tier.label} - {tier.kickLabel}</div>
-        <div class="home-tier-row-desc">Tier Upgrade Bonus: {tier.bonusLabel}</div>
-        <div class="home-tier-row-desc">Mystery Box Rights: {tier.rightsLabel}</div>
-        <div class="home-tier-row-desc">Gameplay Benefits: {tier.gameplayLabel}</div>
-        <div class="home-tier-row-desc">Exclusive Rewards: {tier.rewardsLabel}</div>
+        <div class="home-tier-row-head">{tier.label}</div>
+        <div class="home-tier-row-desc">Requirements: {tier.kickLabel}</div>
+        <div class="home-tier-row-desc">Benefits: {tier.rewardsLabel}</div>
+        {#if tier.bonusLabel.trim()}
+          <div class="home-tier-row-desc">Upgrade Bonus: {tier.bonusLabel}</div>
+        {/if}
+        <div class="home-tier-row-desc">{tier.rightsLabel}</div>
+        <div class="home-tier-row-desc">{tier.gameplayLabel}</div>
       </div>
     {/each}
   </div>
