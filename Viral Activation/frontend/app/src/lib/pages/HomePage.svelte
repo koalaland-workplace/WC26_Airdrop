@@ -27,8 +27,12 @@
   let announcementDontShowAgain = false;
   let announcementRequestId = 0;
   let telegramHandle = "@unknown";
+  let telegramHandleResolveTimer: ReturnType<typeof setTimeout> | null = null;
+  let telegramHandleResolveAttempts = 0;
 
   const ANNOUNCEMENT_DISMISS_PREFIX = "wc26_ann_dismiss_v1_";
+  const TELEGRAM_HANDLE_RESOLVE_MAX_ATTEMPTS = 20;
+  const TELEGRAM_HANDLE_RESOLVE_INTERVAL_MS = 150;
 
   function announcementDismissKey(id: string): string {
     return `${ANNOUNCEMENT_DISMISS_PREFIX}${id}`;
@@ -61,18 +65,59 @@
 
   function resolveTelegramHandle(): string {
     if (typeof window === "undefined") return "@unknown";
+
+    const parseHandleFromUser = (user: unknown): string | null => {
+      const profile = typeof user === "object" && user ? (user as { id?: unknown; username?: unknown }) : null;
+      const rawUsername = String(profile?.username ?? "").trim().replace(/^@+/, "");
+      if (rawUsername.length > 0) return `@${rawUsername}`;
+      const rawId = String(profile?.id ?? "").trim();
+      if (rawId.length > 0) return `@${rawId}`;
+      return null;
+    };
+
     const telegram = (window as typeof window & {
       Telegram?: { WebApp?: { initDataUnsafe?: { user?: { id?: unknown; username?: unknown } } } };
     }).Telegram;
-    const rawUsername = String(telegram?.WebApp?.initDataUnsafe?.user?.username ?? "").trim().replace(/^@+/, "");
-    if (rawUsername.length > 0) return `@${rawUsername}`;
-    const rawId = String(telegram?.WebApp?.initDataUnsafe?.user?.id ?? "").trim();
-    if (rawId.length > 0) return `@${rawId}`;
+    const directHandle = parseHandleFromUser(telegram?.WebApp?.initDataUnsafe?.user);
+    if (directHandle) return directHandle;
+
+    try {
+      const url = new URL(window.location.href);
+      const hashParams = (() => {
+        const rawHash = url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
+        if (!rawHash) return new URLSearchParams();
+        const qIndex = rawHash.indexOf("?");
+        return qIndex >= 0 ? new URLSearchParams(rawHash.slice(qIndex + 1)) : new URLSearchParams(rawHash);
+      })();
+      const tgWebAppDataRaw = url.searchParams.get("tgWebAppData") ?? hashParams.get("tgWebAppData") ?? "";
+      if (tgWebAppDataRaw.trim().length > 0) {
+        const tgParams = new URLSearchParams(tgWebAppDataRaw);
+        const userRaw = tgParams.get("user");
+        if (userRaw) {
+          const parsed = JSON.parse(userRaw);
+          const fromUrlHandle = parseHandleFromUser(parsed);
+          if (fromUrlHandle) return fromUrlHandle;
+        }
+      }
+    } catch {
+      // Ignore URL parsing errors and keep fallback.
+    }
+
     return "@unknown";
   }
 
+  function scheduleTelegramHandleResolve(): void {
+    const nextHandle = resolveTelegramHandle();
+    telegramHandle = nextHandle;
+    if (nextHandle !== "@unknown") return;
+    if (telegramHandleResolveAttempts >= TELEGRAM_HANDLE_RESOLVE_MAX_ATTEMPTS) return;
+    telegramHandleResolveAttempts += 1;
+    telegramHandleResolveTimer = setTimeout(scheduleTelegramHandleResolve, TELEGRAM_HANDLE_RESOLVE_INTERVAL_MS);
+  }
+
   onMount(() => {
-    telegramHandle = resolveTelegramHandle();
+    telegramHandleResolveAttempts = 0;
+    scheduleTelegramHandleResolve();
     ticker = setInterval(() => {
       countdownDays = daysUntilKickoff();
     }, 60_000);
@@ -94,6 +139,7 @@
 
   onDestroy(() => {
     if (ticker) clearInterval(ticker);
+    if (telegramHandleResolveTimer) clearTimeout(telegramHandleResolveTimer);
   });
 
   $: hotSignals = $hotSignalsStore.items.slice(0, 5);
