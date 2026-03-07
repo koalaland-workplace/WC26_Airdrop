@@ -26,6 +26,7 @@
   let announcementPopupOpen = false;
   let announcementDontShowAgain = false;
   let announcementRequestId = 0;
+  let telegramHandle = "@unknown";
 
   const ANNOUNCEMENT_DISMISS_PREFIX = "wc26_ann_dismiss_v1_";
 
@@ -58,7 +59,20 @@
     return new Date(ms).toLocaleString();
   }
 
+  function resolveTelegramHandle(): string {
+    if (typeof window === "undefined") return "@unknown";
+    const telegram = (window as typeof window & {
+      Telegram?: { WebApp?: { initDataUnsafe?: { user?: { id?: unknown; username?: unknown } } } };
+    }).Telegram;
+    const rawUsername = String(telegram?.WebApp?.initDataUnsafe?.user?.username ?? "").trim().replace(/^@+/, "");
+    if (rawUsername.length > 0) return `@${rawUsername}`;
+    const rawId = String(telegram?.WebApp?.initDataUnsafe?.user?.id ?? "").trim();
+    if (rawId.length > 0) return `@${rawId}`;
+    return "@unknown";
+  }
+
   onMount(() => {
+    telegramHandle = resolveTelegramHandle();
     ticker = setInterval(() => {
       countdownDays = daysUntilKickoff();
     }, 60_000);
@@ -195,7 +209,10 @@
   </div>
 
   <div class="card acc-b home-journey-card">
-    <div class="home-journey-title">🧭 Your Journey Stats</div>
+    <div class="home-journey-title-row">
+      <div class="home-journey-title">🧭 Your Journey Stats</div>
+      <div class="home-journey-telegram">{telegramHandle}</div>
+    </div>
     <div class="home-journey-table">
       <div class="home-journey-row">
         <div class="home-journey-cell">

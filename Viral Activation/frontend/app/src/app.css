@@ -860,7 +860,25 @@ a {
   font-weight: 700;
   font-size: 12px;
   color: var(--pw);
+  margin-bottom: 0;
+}
+
+.home-journey-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 7px;
+}
+
+.home-journey-telegram {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 9.6px;
+  color: var(--c-gray);
+  line-height: 1.1;
+  white-space: nowrap;
+  text-align: right;
 }
 
 .home-journey-table {
