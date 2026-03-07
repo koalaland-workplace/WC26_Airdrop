@@ -1350,11 +1350,17 @@ export const newsRoutes: FastifyPluginAsync = async (app) => {
         const localizedNews = await buildLocalizedNewsItems(app, newsFetch.items);
         warnings.push(...localizedNews.warnings);
         newsStored = await upsertNewsItems(app, config.provider, localizedNews.items);
+      } catch (newsError) {
+        const msg = newsError instanceof Error ? newsError.message : "News sync failed";
+        warnings.push(msg);
+      }
+
+      try {
         const curated = await refreshCuratedHotSignals(app, config.provider);
         curatedStored = curated.stored;
         warnings.push(...curated.warnings);
-      } catch (newsError) {
-        const msg = newsError instanceof Error ? newsError.message : "News sync failed";
+      } catch (curatedError) {
+        const msg = curatedError instanceof Error ? curatedError.message : "Hot news curation failed";
         warnings.push(msg);
       }
 
