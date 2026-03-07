@@ -10,6 +10,29 @@ const createSchema = z.object({
 });
 
 export const announcementRoutes: FastifyPluginAsync = async (app) => {
+  app.get("/api/v1/app/announcements/latest", async () => {
+    const now = new Date();
+    const item = await app.prisma.announcement.findFirst({
+      where: {
+        publishedAt: {
+          not: null,
+          lte: now
+        }
+      },
+      orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        title: true,
+        message: true,
+        target: true,
+        publishedAt: true,
+        createdAt: true
+      }
+    });
+
+    return { item };
+  });
+
   app.get(
     "/api/v1/announcements",
     { preHandler: app.requirePermission("announcements.manage") },

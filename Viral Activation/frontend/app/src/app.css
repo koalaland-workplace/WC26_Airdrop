@@ -501,6 +501,145 @@ a {
   color: var(--c-gray);
 }
 
+.home-ann-banner {
+  padding: 11px;
+  margin-top: 10px;
+  background:
+    radial-gradient(circle at 92% 18%, rgba(245, 197, 66, 0.16), transparent 44%),
+    linear-gradient(145deg, rgba(34, 27, 15, 0.9), rgba(22, 28, 36, 0.96));
+}
+
+.home-ann-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.home-ann-badge {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--y);
+}
+
+.home-ann-open {
+  border: 1px solid rgba(245, 197, 66, 0.42);
+  background: rgba(245, 197, 66, 0.14);
+  color: var(--y);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.home-ann-title {
+  margin-top: 7px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pw);
+  line-height: 1.3;
+}
+
+.home-ann-message {
+  margin-top: 5px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--gr);
+  white-space: pre-wrap;
+}
+
+.home-ann-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  background: rgba(5, 12, 18, 0.74);
+  backdrop-filter: blur(6px);
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-ann-modal {
+  width: min(100%, 398px);
+  border-radius: 14px;
+  border: 1px solid rgba(245, 197, 66, 0.35);
+  background:
+    radial-gradient(circle at 86% 8%, rgba(245, 197, 66, 0.16), transparent 46%),
+    linear-gradient(160deg, #0f1f2c, #13293b);
+  box-shadow: 0 18px 52px rgba(0, 0, 0, 0.5);
+  padding: 14px;
+}
+
+.home-ann-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.home-ann-modal-badge {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--y);
+}
+
+.home-ann-modal-close {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--pw);
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.home-ann-modal-title {
+  margin-top: 10px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--pw);
+  line-height: 1.3;
+}
+
+.home-ann-modal-message {
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--gr);
+  max-height: min(42vh, 260px);
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.home-ann-modal-published {
+  margin-top: 10px;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.home-ann-modal-check {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--gr);
+  font-size: 10px;
+}
+
+.home-ann-modal-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+}
+
 .spin-cta {
   display: block;
   width: 100%;

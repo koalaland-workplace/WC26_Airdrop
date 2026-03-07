@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
   import type { AppPage, InfoTab } from "../stores/ui.store";
+  import { fetchLatestAnnouncement } from "../modules/announcements/api";
+  import type { AppAnnouncementItem } from "../modules/announcements/types";
   import { HOME_HERO_SNAPSHOT, HOME_TOP_NATIONS } from "../modules/home/data";
   import { daysUntilKickoff, formatFans } from "../modules/home/utils";
   import { fetchReferralState } from "../modules/referral/api";
@@ -20,11 +22,60 @@
   let indirectReferralF2 = 0;
   let syncedReferralSessionId = "";
   let referralRequestId = 0;
+  let latestAnnouncement: AppAnnouncementItem | null = null;
+  let announcementPopupOpen = false;
+  let announcementDontShowAgain = false;
+  let announcementRequestId = 0;
+
+  const ANNOUNCEMENT_DISMISS_PREFIX = "wc26_ann_dismiss_v1_";
+
+  function announcementDismissKey(id: string): string {
+    return `${ANNOUNCEMENT_DISMISS_PREFIX}${id}`;
+  }
+
+  function isAnnouncementDismissed(id: string): boolean {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(announcementDismissKey(id)) === "1";
+  }
+
+  function openAnnouncementPopup(): void {
+    announcementDontShowAgain = false;
+    announcementPopupOpen = true;
+  }
+
+  function dismissAnnouncementPopup(): void {
+    if (latestAnnouncement && announcementDontShowAgain && typeof window !== "undefined") {
+      window.localStorage.setItem(announcementDismissKey(latestAnnouncement.id), "1");
+    }
+    announcementDontShowAgain = false;
+    announcementPopupOpen = false;
+  }
+
+  function formatAnnouncementPublishedAt(value: string | null): string {
+    if (!value) return "-";
+    const ms = Date.parse(value);
+    if (!Number.isFinite(ms)) return "-";
+    return new Date(ms).toLocaleString();
+  }
 
   onMount(() => {
     ticker = setInterval(() => {
       countdownDays = daysUntilKickoff();
     }, 60_000);
+
+    const requestId = ++announcementRequestId;
+    void (async () => {
+      try {
+        const payload = await fetchLatestAnnouncement();
+        if (requestId !== announcementRequestId) return;
+        latestAnnouncement = payload.item;
+        if (latestAnnouncement && !isAnnouncementDismissed(latestAnnouncement.id)) {
+          openAnnouncementPopup();
+        }
+      } catch {
+        // Ignore transient announcement fetch errors on home page.
+      }
+    })();
   });
 
   onDestroy(() => {
@@ -86,6 +137,17 @@
     <div class="home-war-delta">{HOME_HERO_SNAPSHOT.warDelta} ↑</div>
     <div class="home-fans">👥 {formatFans(HOME_HERO_SNAPSHOT.liveFans)} fans playing now</div>
   </div>
+
+  {#if latestAnnouncement}
+    <div class="card acc-y home-ann-banner">
+      <div class="home-ann-row">
+        <div class="home-ann-badge">📢 New Announcement</div>
+        <button class="home-ann-open" type="button" on:click={openAnnouncementPopup}>Open Announcement</button>
+      </div>
+      <div class="home-ann-title">{latestAnnouncement.title}</div>
+      <div class="home-ann-message">{latestAnnouncement.message}</div>
+    </div>
+  {/if}
 
   <button class="spin-cta" type="button" on:click={() => onNavigate("spin")}>
     <div class="spin-cta-inner">
@@ -205,4 +267,25 @@
     <div class="home-hot-sub">{homeHotUpdated}</div>
     <HotSignalsCompact items={hotSignals} />
   </div>
+
+  {#if latestAnnouncement && announcementPopupOpen}
+    <div class="home-ann-modal-backdrop">
+      <div class="home-ann-modal" role="dialog" aria-modal="true" aria-label="Official Announcement">
+        <div class="home-ann-modal-head">
+          <div class="home-ann-modal-badge">📢 Official Announcement</div>
+          <button class="home-ann-modal-close" type="button" on:click={dismissAnnouncementPopup}>Dismiss</button>
+        </div>
+        <div class="home-ann-modal-title">{latestAnnouncement.title}</div>
+        <div class="home-ann-modal-message">{latestAnnouncement.message}</div>
+        <div class="home-ann-modal-published">Published: {formatAnnouncementPublishedAt(latestAnnouncement.publishedAt)}</div>
+        <label class="home-ann-modal-check">
+          <input type="checkbox" bind:checked={announcementDontShowAgain} />
+          <span>Don't show this again</span>
+        </label>
+        <div class="home-ann-modal-actions">
+          <button class="btn b-y" type="button" on:click={dismissAnnouncementPopup}>Dismiss</button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>
