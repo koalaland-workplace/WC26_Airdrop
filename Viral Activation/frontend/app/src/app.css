@@ -3136,16 +3136,17 @@ a {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-bottom: 10px;
-  text-align: left;
+  margin-top: 10px;
+  text-align: center;
 }
 
 .ref-invite-label {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 15px;
+  font-size: 12px;
   color: var(--pw);
-  letter-spacing: 0.2px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
 }
 
 .ref-invite-link {
@@ -3161,8 +3162,8 @@ a {
 }
 
 .ref-copy-btn {
-  width: auto;
-  align-self: flex-end;
+  width: 100%;
+  align-self: stretch;
   min-height: 30px;
   padding: 7px 12px;
   font-size: 9px;
