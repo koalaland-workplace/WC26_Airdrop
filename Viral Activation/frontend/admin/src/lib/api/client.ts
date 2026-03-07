@@ -557,6 +557,54 @@ export async function installFreeNewsApiPack(
   });
 }
 
+export interface HotSignalAdminItem {
+  id: string;
+  providerItemId: string;
+  title: string;
+  summary: string | null;
+  url: string | null;
+  imageUrl: string | null;
+  sourceName: string | null;
+  sourceProvider: string | null;
+  topicKey: string | null;
+  language: string | null;
+  competition: string | null;
+  publishedAt: string;
+  createdAt: string;
+}
+
+export async function listHotSignals(
+  accessToken: string,
+  query: { language?: string; limit?: number } = {}
+): Promise<{ items: HotSignalAdminItem[] }> {
+  const params = new URLSearchParams();
+  if (query.language) params.set("language", query.language);
+  if (query.limit) params.set("limit", String(query.limit));
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return request(`/api/v1/system/hot-signals${suffix}`, {
+    headers: authedHeaders(accessToken)
+  });
+}
+
+export async function refreshHotSignals(
+  accessToken: string
+): Promise<{ ok: boolean; sync: unknown; items: HotSignalAdminItem[] }> {
+  return request("/api/v1/system/hot-signals/refresh", {
+    method: "POST",
+    headers: authedHeaders(accessToken)
+  });
+}
+
+export async function deleteHotSignal(
+  accessToken: string,
+  id: string
+): Promise<{ ok: boolean; deleted: number }> {
+  return request(`/api/v1/system/hot-signals/${id}`, {
+    method: "DELETE",
+    headers: authedHeaders(accessToken)
+  });
+}
+
 export async function downloadKickLedgerCsv(
   accessToken: string,
   query: { userId?: string; source?: string; from?: string; to?: string; limit?: number } = {}

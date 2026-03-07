@@ -6,6 +6,8 @@ import { writeAudit } from "../common/audit.js";
 
 const APP_HOT_SIGNAL_LANGUAGES = ["en", "es", "pt", "kr", "jp"] as const;
 type AppHotSignalLanguage = (typeof APP_HOT_SIGNAL_LANGUAGES)[number];
+const HOT_SIGNAL_PROVIDER = "hot-signal";
+const HOT_SIGNAL_FEED_SIZE = 5;
 
 const GNEWS_DEFAULT_SEARCH_QUERY = [
   "\"World Cup 2026\"",
@@ -82,6 +84,7 @@ type SyncState = {
     fixturesRequestUrl: string;
     newsFetched: number;
     newsStored: number;
+    curatedStored: number;
     fixturesFetched: number;
     fixturesStored: number;
     fixturesCreated: number;
@@ -119,6 +122,27 @@ type NormalizedFixtureItem = {
   awayScore: number | null;
   highlight: string | null;
   rawPayload: Record<string, unknown>;
+};
+
+type CuratedNewsSourceItem = {
+  id: string;
+  title: string;
+  summary: string | null;
+  content: string | null;
+  url: string | null;
+  imageUrl: string | null;
+  sourceName: string | null;
+  language: string | null;
+  competition: string | null;
+  publishedAt: Date;
+  createdAt: Date;
+  provider: string;
+};
+
+type CuratedHotSignalItem = NormalizedNewsItem & {
+  topicKey: string;
+  sourceNewsId: string;
+  sourceProvider: string;
 };
 
 const FREE_FOOTBALL_NEWS_PROFILES: FootballNewsProfileNode[] = [
@@ -223,6 +247,11 @@ const FREE_FOOTBALL_NEWS_PROFILES: FootballNewsProfileNode[] = [
 const installFreePackSchema = z.object({
   setActive: z.boolean().default(true),
   activeProvider: z.string().min(1).optional()
+});
+
+const hotSignalsQuerySchema = z.object({
+  language: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20)
 });
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -431,6 +460,148 @@ function inferCompetition(
   if (haystack.includes("world cup")) return "FIFA-WC";
   if (haystack.includes("fifa")) return "FIFA";
   return config.defaults.competitions[0] ?? null;
+}
+
+function scoreNewsSource(item: CuratedNewsSourceItem): number {
+  const ageHours = Math.max(0, (Date.now() - item.publishedAt.getTime()) / 3_600_000);
+  const freshness = Math.max(0, 72 - ageHours);
+  const imageBonus = item.imageUrl ? 12 : 0;
+  const summaryBonus = item.summary && item.summary.trim().length > 40 ? 8 : 0;
+  const sourceBonus = /reuters|associated press|ap\b|bbc|espn|sky|guardian|washington post|times/i.test(item.sourceName ?? "")
+    ? 10
+    : 0;
+  const topicBonus = /world cup|fifa|national team|messi|mbappe|bellingham|vinicius|ronaldo|football/i.test(
+    `${item.title} ${item.summary ?? ""}`
+  )
+    ? 6
+    : 0;
+  return freshness + imageBonus + summaryBonus + sourceBonus + topicBonus;
+}
+
+function normalizeTopicTokens(text: string): string[] {
+  return compactSpaces(stripHtml(text))
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(" ")
+    .map((part) => part.trim())
+    .filter(
+      (part) =>
+        part.length >= 4 &&
+        ![
+          "with",
+          "from",
+          "that",
+          "this",
+          "have",
+          "will",
+          "after",
+          "before",
+          "their",
+          "against",
+          "about",
+          "football",
+          "soccer",
+          "world",
+          "cup",
+          "fifa",
+          "2026",
+          "team",
+          "teams",
+          "player",
+          "players"
+        ].includes(part)
+    );
+}
+
+function titleTopicKey(title: string): string {
+  const tokens = normalizeTopicTokens(title);
+  return tokens.slice(0, 6).join("|");
+}
+
+function titleSimilarity(left: string, right: string): number {
+  const a = new Set(normalizeTopicTokens(left));
+  const b = new Set(normalizeTopicTokens(right));
+  if (a.size === 0 || b.size === 0) return 0;
+  let intersection = 0;
+  for (const token of a) {
+    if (b.has(token)) intersection += 1;
+  }
+  return intersection / Math.max(a.size, b.size);
+}
+
+function buildCuratedHotSignal(source: CuratedNewsSourceItem): CuratedHotSignalItem {
+  const topicKey =
+    titleTopicKey(source.title) ||
+    createHash("sha1")
+      .update(compactSpaces(source.title).toLowerCase())
+      .digest("hex")
+      .slice(0, 12);
+  const canonicalId = createHash("sha1")
+    .update(
+      [
+        source.provider,
+        source.id,
+        compactSpaces(source.title).toLowerCase(),
+        compactSpaces(source.sourceName ?? "").toLowerCase()
+      ].join("|")
+    )
+    .digest("hex")
+    .slice(0, 24);
+
+  return {
+    providerItemId: canonicalId,
+    title: clampText(compactSpaces(source.title), 180, "Hot Signal"),
+    summary: clampSummary(buildHotSignalSummary(source.title, source.summary, source.content), 190),
+    content: source.content ? clampSummary(compactSpaces(stripHtml(source.content)), 280) : null,
+    url: source.url,
+    imageUrl: source.imageUrl,
+    sourceName: source.sourceName,
+    language: normalizeAppHotSignalLanguage(source.language),
+    competition: source.competition,
+    publishedAt: source.publishedAt,
+    rawPayload: {
+      curated: true,
+      topicKey,
+      sourceNewsId: source.id,
+      sourceProvider: source.provider
+    },
+    topicKey,
+    sourceNewsId: source.id,
+    sourceProvider: source.provider
+  };
+}
+
+function curateDistinctHotSignals(items: CuratedNewsSourceItem[], limit = HOT_SIGNAL_FEED_SIZE): CuratedHotSignalItem[] {
+  const sorted = [...items].sort((left, right) => {
+    const scoreDiff = scoreNewsSource(right) - scoreNewsSource(left);
+    if (scoreDiff !== 0) return scoreDiff;
+    return right.publishedAt.getTime() - left.publishedAt.getTime();
+  });
+
+  const selected: CuratedHotSignalItem[] = [];
+  const usedTopicKeys = new Set<string>();
+
+  for (const item of sorted) {
+    const curated = buildCuratedHotSignal(item);
+    const duplicate =
+      usedTopicKeys.has(curated.topicKey) ||
+      selected.some(
+        (existing) =>
+          (!!curated.url && existing.url === curated.url) ||
+          titleSimilarity(existing.title, curated.title) >= 0.5 ||
+          ((existing.summary ?? "").length > 0 &&
+            (curated.summary ?? "").length > 0 &&
+            titleSimilarity(existing.summary ?? "", curated.summary ?? "") >= 0.55)
+      );
+
+    if (duplicate) continue;
+
+    usedTopicKeys.add(curated.topicKey);
+    selected.push(curated);
+    if (selected.length >= limit) break;
+  }
+
+  return selected;
 }
 
 function normalizeNewsRecord(raw: Record<string, unknown>, config: FootballNewsConfig): NormalizedNewsItem | null {
@@ -832,13 +1003,13 @@ async function buildLocalizedNewsItems(
   return { items: localizedItems, warnings };
 }
 
-async function upsertNewsItems(app: FastifyInstance, config: FootballNewsConfig, items: NormalizedNewsItem[]) {
+async function upsertNewsItems(app: FastifyInstance, provider: string, items: NormalizedNewsItem[]) {
   let stored = 0;
   for (const item of items) {
     await app.prisma.newsItem.upsert({
       where: {
         provider_providerItemId: {
-          provider: config.provider,
+          provider,
           providerItemId: item.providerItemId
         }
       },
@@ -856,7 +1027,7 @@ async function upsertNewsItems(app: FastifyInstance, config: FootballNewsConfig,
         rawPayload: item.rawPayload as never
       },
       create: {
-        provider: config.provider,
+        provider,
         providerItemId: item.providerItemId,
         title: item.title,
         summary: item.summary,
@@ -873,6 +1044,171 @@ async function upsertNewsItems(app: FastifyInstance, config: FootballNewsConfig,
     stored += 1;
   }
   return stored;
+}
+
+async function loadCuratedHotSignalSourceItems(
+  app: FastifyInstance,
+  provider?: string,
+  take = 40
+): Promise<CuratedNewsSourceItem[]> {
+  const preferredProvider = provider?.trim();
+  const primaryWhere = {
+    provider: preferredProvider
+      ? preferredProvider
+      : {
+          not: HOT_SIGNAL_PROVIDER
+        },
+    language: "en",
+    publishedAt: {
+      gte: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000)
+    }
+  } as const;
+
+  const fallbackWhere = {
+    provider: {
+      not: HOT_SIGNAL_PROVIDER
+    },
+    language: "en",
+    publishedAt: {
+      gte: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000)
+    }
+  } as const;
+
+  const items = await app.prisma.newsItem.findMany({
+    where: primaryWhere,
+    orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+    take
+  });
+  if (items.length > 0 || !preferredProvider) {
+    return items.map((item) => ({
+      id: item.id,
+      title: item.title,
+      summary: item.summary,
+      content: item.content,
+      url: item.url,
+      imageUrl: item.imageUrl,
+      sourceName: item.sourceName,
+      language: item.language,
+      competition: item.competition,
+      publishedAt: item.publishedAt,
+      createdAt: item.createdAt,
+      provider: item.provider
+    }));
+  }
+
+  const fallbackItems = await app.prisma.newsItem.findMany({
+    where: fallbackWhere,
+    orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+    take
+  });
+  return fallbackItems.map((item) => ({
+    id: item.id,
+    title: item.title,
+    summary: item.summary,
+    content: item.content,
+    url: item.url,
+    imageUrl: item.imageUrl,
+    sourceName: item.sourceName,
+    language: item.language,
+    competition: item.competition,
+    publishedAt: item.publishedAt,
+    createdAt: item.createdAt,
+    provider: item.provider
+  }));
+}
+
+async function refreshCuratedHotSignals(
+  app: FastifyInstance,
+  provider?: string,
+  limit = HOT_SIGNAL_FEED_SIZE
+): Promise<{ stored: number; warnings: string[]; items: NormalizedNewsItem[] }> {
+  const warnings: string[] = [];
+  const sourceItems = await loadCuratedHotSignalSourceItems(app, provider);
+  const curated = curateDistinctHotSignals(sourceItems, limit);
+  if (curated.length === 0) {
+    await app.prisma.newsItem.deleteMany({
+      where: { provider: HOT_SIGNAL_PROVIDER }
+    });
+    return { stored: 0, warnings: ["No source news available for curation"], items: [] };
+  }
+
+  const localized = await buildLocalizedNewsItems(
+    app,
+    curated.map((item) => ({
+      providerItemId: item.providerItemId,
+      title: item.title,
+      summary: item.summary,
+      content: item.content,
+      url: item.url,
+      imageUrl: item.imageUrl,
+      sourceName: item.sourceName,
+      language: item.language,
+      competition: item.competition,
+      publishedAt: item.publishedAt,
+      rawPayload: {
+        ...(isRecord(item.rawPayload) ? item.rawPayload : {}),
+        curated: true,
+        topicKey: item.topicKey,
+        sourceNewsId: item.sourceNewsId,
+        sourceProvider: item.sourceProvider
+      }
+    }))
+  );
+  warnings.push(...localized.warnings);
+  const keepIds = localized.items.map((item) => item.providerItemId);
+
+  await app.prisma.$transaction(async (tx) => {
+    await tx.newsItem.deleteMany({
+      where: {
+        provider: HOT_SIGNAL_PROVIDER,
+        ...(keepIds.length > 0 ? { providerItemId: { notIn: keepIds } } : {})
+      }
+    });
+
+    for (const item of localized.items) {
+      await tx.newsItem.upsert({
+        where: {
+          provider_providerItemId: {
+            provider: HOT_SIGNAL_PROVIDER,
+            providerItemId: item.providerItemId
+          }
+        },
+        update: {
+          title: item.title,
+          summary: item.summary,
+          content: item.content,
+          url: item.url,
+          imageUrl: item.imageUrl,
+          sourceName: item.sourceName,
+          language: item.language,
+          competition: item.competition,
+          publishedAt: item.publishedAt,
+          fetchedAt: new Date(),
+          rawPayload: item.rawPayload as never
+        },
+        create: {
+          provider: HOT_SIGNAL_PROVIDER,
+          providerItemId: item.providerItemId,
+          title: item.title,
+          summary: item.summary,
+          content: item.content,
+          url: item.url,
+          imageUrl: item.imageUrl,
+          sourceName: item.sourceName,
+          language: item.language,
+          competition: item.competition,
+          publishedAt: item.publishedAt,
+          rawPayload: item.rawPayload as never
+        }
+      });
+    }
+  });
+
+  return {
+    stored: localized.items.length,
+    warnings,
+    items: localized.items
+  };
 }
 
 async function upsertMatchFixtures(app: FastifyInstance, items: NormalizedFixtureItem[]) {
@@ -1000,6 +1336,7 @@ export const newsRoutes: FastifyPluginAsync = async (app) => {
       let newsRequestUrl = "";
       let newsFetched = 0;
       let newsStored = 0;
+      let curatedStored = 0;
       let fixturesRequestUrl = "";
       let fixturesFetched = 0;
       let fixturesStored = 0;
@@ -1012,7 +1349,10 @@ export const newsRoutes: FastifyPluginAsync = async (app) => {
         newsFetched = newsFetch.fetched;
         const localizedNews = await buildLocalizedNewsItems(app, newsFetch.items);
         warnings.push(...localizedNews.warnings);
-        newsStored = await upsertNewsItems(app, config, localizedNews.items);
+        newsStored = await upsertNewsItems(app, config.provider, localizedNews.items);
+        const curated = await refreshCuratedHotSignals(app, config.provider);
+        curatedStored = curated.stored;
+        warnings.push(...curated.warnings);
       } catch (newsError) {
         const msg = newsError instanceof Error ? newsError.message : "News sync failed";
         warnings.push(msg);
@@ -1046,6 +1386,7 @@ export const newsRoutes: FastifyPluginAsync = async (app) => {
         fixturesRequestUrl,
         newsFetched,
         newsStored,
+        curatedStored,
         fixturesFetched,
         fixturesStored,
         fixturesCreated,
@@ -1069,6 +1410,7 @@ export const newsRoutes: FastifyPluginAsync = async (app) => {
             fixturesRequestUrl,
             newsFetched,
             newsStored,
+            curatedStored,
             fixturesFetched,
             fixturesStored,
             fixturesCreated,
@@ -1087,6 +1429,7 @@ export const newsRoutes: FastifyPluginAsync = async (app) => {
         fixturesRequestUrl,
         newsFetched,
         newsStored,
+        curatedStored,
         fixturesFetched,
         fixturesStored,
         fixturesCreated,
@@ -1145,7 +1488,31 @@ export const newsRoutes: FastifyPluginAsync = async (app) => {
     const from = toDateOrUndefined(q.from);
     const to = toDateOrUndefined(q.to);
     const requestedLanguage = q.language ? normalizeAppHotSignalLanguage(q.language) : undefined;
-    const where = {
+    const effectiveHotSignalLanguage = requestedLanguage ?? "en";
+    const buildWhere = (provider?: string, language?: string) => ({
+      ...(provider ? { provider } : {}),
+      ...(language ? { language } : {}),
+      ...(q.competition ? { competition: q.competition } : {}),
+      ...(q.q
+        ? {
+            OR: [
+              { title: { contains: q.q, mode: "insensitive" as const } },
+              { summary: { contains: q.q, mode: "insensitive" as const } }
+            ]
+          }
+        : {}),
+      ...(from || to
+        ? {
+            publishedAt: {
+              ...(from ? { gte: from } : {}),
+              ...(to ? { lte: to } : {})
+            }
+          }
+        : {})
+    });
+    const fallbackWhere = buildWhere(HOT_SIGNAL_PROVIDER, effectiveHotSignalLanguage !== "en" ? "en" : undefined);
+    const primaryWhere = buildWhere(HOT_SIGNAL_PROVIDER, effectiveHotSignalLanguage);
+    const legacyWhere = {
       ...(requestedLanguage ? { language: requestedLanguage } : {}),
       ...(q.competition ? { competition: q.competition } : {}),
       ...(q.q
@@ -1182,20 +1549,16 @@ export const newsRoutes: FastifyPluginAsync = async (app) => {
 
     let [items, total] = await Promise.all([
       app.prisma.newsItem.findMany({
-        where,
+        where: primaryWhere,
         orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
         take: q.limit,
         skip: q.offset,
         select
       }),
-      app.prisma.newsItem.count({ where })
+      app.prisma.newsItem.count({ where: primaryWhere })
     ]);
 
-    if (requestedLanguage && requestedLanguage !== "en" && items.length === 0) {
-      const fallbackWhere = {
-        ...where,
-        language: "en"
-      };
+    if (items.length === 0 && (requestedLanguage || q.q || q.competition || from || to)) {
       [items, total] = await Promise.all([
         app.prisma.newsItem.findMany({
           where: fallbackWhere,
@@ -1205,6 +1568,36 @@ export const newsRoutes: FastifyPluginAsync = async (app) => {
           select
         }),
         app.prisma.newsItem.count({ where: fallbackWhere })
+      ]);
+    }
+
+    if (items.length === 0) {
+      [items, total] = await Promise.all([
+        app.prisma.newsItem.findMany({
+          where: legacyWhere,
+          orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+          take: q.limit,
+          skip: q.offset,
+          select
+        }),
+        app.prisma.newsItem.count({ where: legacyWhere })
+      ]);
+    }
+
+    if (requestedLanguage && requestedLanguage !== "en" && items.length === 0) {
+      const legacyFallbackWhere = {
+        ...legacyWhere,
+        language: "en"
+      };
+      [items, total] = await Promise.all([
+        app.prisma.newsItem.findMany({
+          where: legacyFallbackWhere,
+          orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+          take: q.limit,
+          skip: q.offset,
+          select
+        }),
+        app.prisma.newsItem.count({ where: legacyFallbackWhere })
       ]);
     }
 
@@ -1363,6 +1756,111 @@ export const newsRoutes: FastifyPluginAsync = async (app) => {
         ipAddress: request.ip
       });
       return result;
+    }
+  );
+
+  app.get("/api/v1/system/hot-signals", { preHandler: app.requirePermission("api.manage") }, async (request) => {
+    const q = hotSignalsQuerySchema.parse(request.query);
+    const language = q.language ? normalizeAppHotSignalLanguage(q.language) : "en";
+    const items = await app.prisma.newsItem.findMany({
+      where: {
+        provider: HOT_SIGNAL_PROVIDER,
+        language
+      },
+      orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+      take: q.limit,
+      select: {
+        id: true,
+        providerItemId: true,
+        title: true,
+        summary: true,
+        url: true,
+        imageUrl: true,
+        sourceName: true,
+        language: true,
+        competition: true,
+        publishedAt: true,
+        createdAt: true,
+        rawPayload: true
+      }
+    });
+
+    return {
+      items: items.map((item) => ({
+        ...item,
+        sourceProvider: isRecord(item.rawPayload) ? firstString(item.rawPayload, ["sourceProvider"]) : null,
+        topicKey: isRecord(item.rawPayload) ? firstString(item.rawPayload, ["topicKey"]) : null
+      }))
+    };
+  });
+
+  app.post(
+    "/api/v1/system/hot-signals/refresh",
+    { preHandler: app.requirePermission("api.manage") },
+    async (request) => {
+      const syncResult = await runSync("manual", {
+        force: true,
+        actorId: request.auth.sub,
+        actorRole: request.auth.role,
+        ipAddress: request.ip
+      });
+      const items = await app.prisma.newsItem.findMany({
+        where: {
+          provider: HOT_SIGNAL_PROVIDER,
+          language: "en"
+        },
+        orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+        take: HOT_SIGNAL_FEED_SIZE
+      });
+
+      return {
+        ok: true,
+        sync: syncResult,
+        items
+      };
+    }
+  );
+
+  app.delete(
+    "/api/v1/system/hot-signals/:id",
+    { preHandler: app.requirePermission("api.manage") },
+    async (request) => {
+      const params = z.object({ id: z.string().min(1) }).parse(request.params);
+      const current = await app.prisma.newsItem.findUnique({
+        where: { id: params.id }
+      });
+      if (!current || current.provider !== HOT_SIGNAL_PROVIDER) {
+        throw app.httpErrors.notFound("Hot signal not found");
+      }
+
+      const canonicalId = current.providerItemId.split(":")[0];
+      const providerItemIds = [canonicalId, ...APP_HOT_SIGNAL_LANGUAGES.filter((language) => language !== "en").map((language) => `${canonicalId}:${language}`)];
+
+      const deleted = await app.prisma.newsItem.deleteMany({
+        where: {
+          provider: HOT_SIGNAL_PROVIDER,
+          providerItemId: {
+            in: providerItemIds
+          }
+        }
+      });
+
+      await writeAudit(app.prisma, {
+        actorId: request.auth.sub,
+        actorRole: request.auth.role,
+        action: "hot_signals.delete",
+        module: "news",
+        targetType: "news_item",
+        targetId: canonicalId,
+        before: current,
+        after: { deletedCount: deleted.count },
+        ipAddress: request.ip
+      });
+
+      return {
+        ok: true,
+        deleted: deleted.count
+      };
     }
   );
 };

@@ -19,6 +19,7 @@
     listAuditLogs,
     listAnnouncements,
     listBoardMembers,
+    listHotSignals,
     listKickLedger,
     listKickLeaderboard,
     listMatches,
@@ -34,9 +35,11 @@
     loginWithTelegram,
     logoutSession,
     openSseStream,
+    refreshHotSignals,
     refreshSession,
     grantSpins,
     deleteSocialChannel,
+    deleteHotSignal,
     updateConfig,
     updateMatchStatus,
     updateMysteryBoxAllocations,
@@ -56,6 +59,7 @@
     type AppUser,
     type BoardMember,
     type FeedSnapshotPayload,
+    type HotSignalAdminItem,
     type KickLedgerItem,
     type MatchFixture,
     type MissionItem,
@@ -1188,6 +1192,8 @@
   let footballNewsProfiles: FootballNewsApiProfile[] = [];
   let footballNewsActiveProfileId = "";
   let footballNewsProfileName = "";
+  let hotSignals: HotSignalAdminItem[] = [];
+  let hotSignalsLanguage = "en";
 
   let announcements: Announcement[] = [];
   let annEditingId = "";
@@ -2069,6 +2075,8 @@
     footballNewsProfiles = parsedProfiles.profiles;
     footballNewsActiveProfileId = parsedProfiles.activeId;
     setActiveFootballNewsProfile(parsedProfiles.activeId);
+    const hotSignalsRes = await withAccess((token) => listHotSignals(token, { language: hotSignalsLanguage, limit: 20 }));
+    hotSignals = hotSignalsRes.items;
   }
 
   async function installFreeApiPack() {
@@ -2083,6 +2091,50 @@
       );
       await loadApiConfig();
       showToast("Free API pack installed");
+    } catch (e) {
+      error = (e as Error).message;
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function reloadHotSignals() {
+    loading = true;
+    error = "";
+    try {
+      const res = await withAccess((token) => listHotSignals(token, { language: hotSignalsLanguage, limit: 20 }));
+      hotSignals = res.items;
+    } catch (e) {
+      error = (e as Error).message;
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function runHotSignalsRefresh() {
+    loading = true;
+    error = "";
+    try {
+      await withAccess((token) => refreshHotSignals(token));
+      await reloadHotSignals();
+      showToast("Hot News refreshed");
+    } catch (e) {
+      error = (e as Error).message;
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function removeHotSignal(item: HotSignalAdminItem) {
+    const ok = window.confirm(`Delete hot news "${item.title}"?`);
+    if (!ok) return;
+
+    loading = true;
+    error = "";
+    try {
+      await withAccess((token) => deleteHotSignal(token, item.id));
+      await reloadHotSignals();
+      showToast("Hot News deleted");
     } catch (e) {
       error = (e as Error).message;
     } finally {
@@ -3068,6 +3120,8 @@
     footballNewsProfiles = [];
     footballNewsActiveProfileId = "";
     footballNewsProfileName = "";
+    hotSignals = [];
+    hotSignalsLanguage = "en";
     liveFeed = [];
   }
 
@@ -4655,6 +4709,74 @@
                 </label>
               </div>
               <div style="font-size:11px;color:var(--text3)">Toggle ON to allow scheduled sync using this provider config.</div>
+            </div>
+          </div>
+          <div class="section">
+            <div class="sec-hdr">
+              <div class="sec-title"><div class="sec-dot g"></div>Hot News Curated Feed</div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <select class="inp" style="width:110px;height:34px" bind:value={hotSignalsLanguage} on:change={reloadHotSignals}>
+                  <option value="en">EN</option>
+                  <option value="es">ES</option>
+                  <option value="pt">PT</option>
+                  <option value="kr">KR</option>
+                  <option value="jp">JP</option>
+                </select>
+                <button class="btn btn-ghost btn-sm" on:click={reloadHotSignals}>RELOAD</button>
+                <button class="btn btn-g btn-sm" on:click={runHotSignalsRefresh}>REFRESH & CURATE</button>
+              </div>
+            </div>
+            <div class="sec-body" style="display:grid;gap:10px">
+              <div style="font-size:11px;color:var(--text3)">
+                Curated feed removes duplicate topics, keeps image/source when available, and stores the selected Hot News on VPS.
+              </div>
+              <div style="border:1px solid var(--border);border-radius:10px;overflow:auto">
+                <table class="tbl">
+                  <thead>
+                    <tr>
+                      <th>Published</th>
+                      <th>Title</th>
+                      <th>Summary</th>
+                      <th>Source</th>
+                      <th>Language</th>
+                      <th>Image</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#if hotSignals.length === 0}
+                      <tr><td colspan="7" style="color:var(--text3)">No curated hot news stored yet.</td></tr>
+                    {:else}
+                      {#each hotSignals as item}
+                        <tr>
+                          <td>{new Date(item.publishedAt).toLocaleString()}</td>
+                          <td style="min-width:240px">
+                            <div style="font-weight:700;color:var(--text1)">{item.title}</div>
+                            <div style="font-size:11px;color:var(--text3)">{item.topicKey ?? "-"}</div>
+                          </td>
+                          <td style="min-width:320px;color:var(--text2)">{item.summary ?? "-"}</td>
+                          <td>
+                            <div>{item.sourceName ?? "-"}</div>
+                            <div style="font-size:11px;color:var(--text3)">{item.sourceProvider ?? "-"}</div>
+                          </td>
+                          <td>{(item.language ?? "en").toUpperCase()}</td>
+                          <td>{item.imageUrl ? "YES" : "NO"}</td>
+                          <td>
+                            <div style="display:flex;gap:8px">
+                              {#if item.url}
+                                <a class="btn btn-ghost btn-sm" href={item.url} target="_blank" rel="noreferrer">OPEN</a>
+                              {/if}
+                              <button class="btn btn-ghost btn-sm" style="border-color:var(--red);color:var(--red)" on:click={() => removeHotSignal(item)}>
+                                DELETE
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      {/each}
+                    {/if}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
