@@ -1,4 +1,5 @@
 import { resolveTierPolicyByKick } from "../tier/policy";
+import type { SessionInitTelegramIdentity } from "./types";
 
 const SESSION_ID_STORAGE_KEY = "wc26_session_id_v1";
 const KICK_PROGRESS_TARGET = 50_000;
@@ -59,6 +60,51 @@ function referralFromTelegram(): string | null {
 
 export function resolveReferralSessionId(): string {
   return referralFromUrl() ?? referralFromTelegram() ?? defaultReferralSessionId();
+}
+
+export function resolveTelegramIdentity(): SessionInitTelegramIdentity | undefined {
+  if (typeof window === "undefined") return undefined;
+
+  const telegram = (window as typeof window & {
+    Telegram?: {
+      WebApp?: {
+        initData?: unknown;
+        initDataUnsafe?: {
+          user?: {
+            id?: unknown;
+            username?: unknown;
+            first_name?: unknown;
+            last_name?: unknown;
+          };
+          auth_date?: unknown;
+          hash?: unknown;
+        };
+      };
+    };
+  }).Telegram;
+
+  const webApp = telegram?.WebApp;
+  const unsafe = webApp?.initDataUnsafe;
+  const user = unsafe?.user;
+  const id = String(user?.id ?? "").trim();
+  if (!id) return undefined;
+
+  const identity: SessionInitTelegramIdentity = { id };
+  const username = String(user?.username ?? "").trim().replace(/^@+/, "");
+  const firstName = String(user?.first_name ?? "").trim();
+  const lastName = String(user?.last_name ?? "").trim();
+  const authDate = Number(unsafe?.auth_date ?? 0);
+  const hash = String(unsafe?.hash ?? "").trim();
+  const initData = String(webApp?.initData ?? "").trim();
+
+  if (username) identity.username = username;
+  if (firstName) identity.firstName = firstName;
+  if (lastName) identity.lastName = lastName;
+  if (Number.isFinite(authDate) && authDate > 0) identity.authDate = Math.floor(authDate);
+  if (hash) identity.hash = hash;
+  if (initData) identity.initData = initData;
+
+  return identity;
 }
 
 export function getStoredSessionId(): string | null {

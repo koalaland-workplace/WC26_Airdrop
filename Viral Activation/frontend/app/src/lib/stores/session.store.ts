@@ -3,6 +3,7 @@ import { initSession } from "../modules/session/api";
 import {
   clearStoredSessionId,
   getStoredSessionId,
+  resolveTelegramIdentity,
   resolveReferralSessionId,
   storeSessionId
 } from "../modules/session/utils";
@@ -17,6 +18,8 @@ export type SessionStatus = "idle" | "loading" | "ready" | "error";
 export interface SessionState {
   status: SessionStatus;
   sessionId: string | null;
+  telegramId: string | null;
+  username: string | null;
   dayKey: string | null;
   kick: number;
   dailyEarned: number;
@@ -39,6 +42,8 @@ const DEFAULT_SPIN_STATE: SessionSpinState = {
 const initialState: SessionState = {
   status: "idle",
   sessionId: null,
+  telegramId: null,
+  username: null,
   dayKey: null,
   kick: 0,
   dailyEarned: 0,
@@ -78,6 +83,8 @@ function createSessionStore() {
       ...current,
       status: "ready",
       sessionId: state.sessionId,
+      telegramId: state.profile?.telegramId ?? current.telegramId ?? null,
+      username: state.profile?.username ?? current.username ?? null,
       dayKey: state.dayKey,
       kick: Math.max(0, Math.floor(Number(state.kick) || 0)),
       dailyEarned: Math.max(0, Math.floor(Number(state.dailyEarned) || 0)),
@@ -96,7 +103,8 @@ function createSessionStore() {
       const storedSessionId = getStoredSessionId() ?? undefined;
       const response = await initSession({
         sessionId: storedSessionId,
-        referralSessionId: storedSessionId ? undefined : resolveReferralSessionId()
+        referralSessionId: storedSessionId ? undefined : resolveReferralSessionId(),
+        telegram: resolveTelegramIdentity()
       });
 
       if (!response.ok || !response.state) {

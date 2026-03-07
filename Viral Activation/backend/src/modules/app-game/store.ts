@@ -9,6 +9,13 @@ export interface LoadedGameSession {
   state: AppGameState;
 }
 
+export interface SessionTelegramIdentity {
+  telegramId: string;
+  username?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+}
+
 type PrismaStoreClient = Pick<
   PrismaClient,
   "appGameState" | "appUser" | "referralEvent" | "kickLedger"
@@ -37,6 +44,40 @@ function sanitizeNationCode(value: unknown, fallback = "VN"): string {
 
 function createGuestUsername(sessionId: string): string {
   return `guest_${sessionId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 10) || "wc26"}`;
+}
+
+function sanitizeTelegramId(value: unknown): string | null {
+  const telegramId = String(value ?? "").trim();
+  if (!/^\d{5,20}$/.test(telegramId)) return null;
+  return telegramId;
+}
+
+function sanitizeUsername(value: unknown): string | null {
+  const username = String(value ?? "")
+    .trim()
+    .replace(/^@+/, "");
+  if (username.length < 2 || username.length > 64) return null;
+  return username;
+}
+
+function normalizeTelegramIdentity(input?: SessionTelegramIdentity | null): SessionTelegramIdentity | null {
+  if (!input) return null;
+  const telegramId = sanitizeTelegramId(input.telegramId);
+  if (!telegramId) return null;
+  return {
+    telegramId,
+    username: sanitizeUsername(input.username ?? null),
+    firstName: sanitizeUsername(input.firstName ?? null),
+    lastName: sanitizeUsername(input.lastName ?? null)
+  };
+}
+
+function resolveTelegramDisplayUsername(identity: SessionTelegramIdentity, fallback: string): string {
+  if (identity.username) return identity.username;
+  if (identity.firstName && identity.lastName) return `${identity.firstName}_${identity.lastName}`.toLowerCase();
+  if (identity.firstName) return identity.firstName.toLowerCase();
+  if (identity.lastName) return identity.lastName.toLowerCase();
+  return fallback;
 }
 
 async function linkReferralOnCreate(
@@ -121,12 +162,16 @@ async function buildSessionFromRow(
 async function createFreshSession(
   tx: PrismaStoreClient,
   preferredSessionId?: string,
-  referralSessionId?: string
+  referralSessionId?: string,
+  telegramIdentity?: SessionTelegramIdentity | null
 ): Promise<LoadedGameSession> {
   const sessionId = preferredSessionId ?? randomUUID();
+  const fallbackUsername = createGuestUsername(sessionId);
+  const telegram = normalizeTelegramIdentity(telegramIdentity);
   const user = await tx.appUser.create({
     data: {
-      username: createGuestUsername(sessionId),
+      telegramId: telegram?.telegramId ?? null,
+      username: telegram ? resolveTelegramDisplayUsername(telegram, fallbackUsername) : fallbackUsername,
       nationCode: "VN"
     }
   });
@@ -142,11 +187,101 @@ async function createFreshSession(
   return { user, state };
 }
 
+async function bindTelegramIdentityToSession(
+  tx: PrismaStoreClient,
+  row: { sessionId: string; state: Prisma.JsonValue; user: AppUser },
+  telegramIdentity: SessionTelegramIdentity
+): Promise<{ sessionId: string; state: Prisma.JsonValue; user: AppUser }> {
+  const normalized = normalizeTelegramIdentity(telegramIdentity);
+  if (!normalized) return row;
+
+  const nextUsername = resolveTelegramDisplayUsername(normalized, row.user.username ?? createGuestUsername(row.sessionId));
+  if (row.user.telegramId === normalized.telegramId) {
+    if (row.user.username === nextUsername) return row;
+    const updated = await tx.appUser.update({
+      where: { id: row.user.id },
+      data: { username: nextUsername }
+    });
+    return {
+      ...row,
+      user: updated
+    };
+  }
+
+  const existingByTelegram = await tx.appUser.findUnique({
+    where: { telegramId: normalized.telegramId },
+    include: { gameState: true }
+  });
+
+  if (!existingByTelegram) {
+    const updated = await tx.appUser.update({
+      where: { id: row.user.id },
+      data: {
+        telegramId: normalized.telegramId,
+        username: nextUsername
+      }
+    });
+    return {
+      ...row,
+      user: updated
+    };
+  }
+
+  const mergedKick = Math.max(existingByTelegram.kick, row.user.kick);
+  const mergedTickets = Math.max(existingByTelegram.mysteryTickets, row.user.mysteryTickets);
+  const shouldUpdateCanonical =
+    existingByTelegram.username !== nextUsername ||
+    mergedKick !== existingByTelegram.kick ||
+    mergedTickets !== existingByTelegram.mysteryTickets;
+
+  const canonicalUser = shouldUpdateCanonical
+    ? await tx.appUser.update({
+        where: { id: existingByTelegram.id },
+        data: {
+          username: nextUsername,
+          kick: mergedKick,
+          mysteryTickets: mergedTickets
+        }
+      })
+    : existingByTelegram;
+
+  if (existingByTelegram.gameState) {
+    return {
+      sessionId: existingByTelegram.gameState.sessionId,
+      state: existingByTelegram.gameState.state,
+      user: canonicalUser
+    };
+  }
+
+  const migratedState = mergePersistedState(
+    row.state,
+    row.sessionId,
+    canonicalUser.kick,
+    canonicalUser.nationCode ?? row.user.nationCode ?? "VN"
+  );
+
+  await tx.appGameState.create({
+    data: {
+      userId: canonicalUser.id,
+      sessionId: row.sessionId,
+      state: migratedState as unknown as Prisma.InputJsonValue
+    }
+  });
+
+  return {
+    sessionId: row.sessionId,
+    state: migratedState as unknown as Prisma.JsonValue,
+    user: canonicalUser
+  };
+}
+
 export async function getOrCreateGameSession(
   prisma: PrismaClient,
   requestedSessionId?: string | null,
-  referralSessionId?: string | null
+  referralSessionId?: string | null,
+  telegramIdentity?: SessionTelegramIdentity | null
 ): Promise<LoadedGameSession> {
+  const telegram = normalizeTelegramIdentity(telegramIdentity);
   const sessionId = sanitizeSessionId(requestedSessionId);
   if (sessionId) {
     const existing = await prisma.appGameState.findUnique({
@@ -154,12 +289,56 @@ export async function getOrCreateGameSession(
       include: { user: true }
     });
     if (existing) {
-      return buildSessionFromRow(prisma, existing);
+      if (!telegram) {
+        return buildSessionFromRow(prisma, existing);
+      }
+      const rebound = await prisma.$transaction((tx) => bindTelegramIdentityToSession(tx, existing, telegram));
+      return buildSessionFromRow(prisma, rebound);
+    }
+  }
+
+  if (telegram) {
+    const existingByTelegram = await prisma.appUser.findUnique({
+      where: { telegramId: telegram.telegramId },
+      include: { gameState: true }
+    });
+
+    if (existingByTelegram) {
+      const nextUsername = resolveTelegramDisplayUsername(telegram, existingByTelegram.username ?? `tg_${telegram.telegramId}`);
+      const updatedUser =
+        nextUsername !== existingByTelegram.username
+          ? await prisma.appUser.update({
+              where: { id: existingByTelegram.id },
+              data: { username: nextUsername }
+            })
+          : existingByTelegram;
+
+      if (existingByTelegram.gameState) {
+        return buildSessionFromRow(prisma, {
+          sessionId: existingByTelegram.gameState.sessionId,
+          state: existingByTelegram.gameState.state,
+          user: updatedUser
+        });
+      }
+
+      const newSessionId = sessionId ?? randomUUID();
+      const state = createDefaultState(newSessionId, updatedUser.kick, updatedUser.nationCode);
+      await prisma.appGameState.create({
+        data: {
+          userId: updatedUser.id,
+          sessionId: newSessionId,
+          state: state as unknown as Prisma.InputJsonValue
+        }
+      });
+      return {
+        user: updatedUser,
+        state
+      };
     }
   }
 
   return prisma.$transaction(async (tx) =>
-    createFreshSession(tx, sessionId ?? undefined, referralSessionId ?? undefined)
+    createFreshSession(tx, sessionId ?? undefined, referralSessionId ?? undefined, telegram)
   );
 }
 

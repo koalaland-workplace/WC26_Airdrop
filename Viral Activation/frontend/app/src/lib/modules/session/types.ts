@@ -28,6 +28,10 @@ export interface SessionViewState {
   dayKey: string;
   kick: number;
   dailyEarned: number;
+  profile?: {
+    telegramId: string | null;
+    username: string | null;
+  };
   quizBoostDay: string;
   quizBoostMult: number;
   refBoostDay: string;
@@ -37,9 +41,20 @@ export interface SessionViewState {
   referral: SessionReferralState;
 }
 
+export interface SessionInitTelegramIdentity {
+  id: string;
+  username?: string;
+  firstName?: string;
+  lastName?: string;
+  authDate?: number;
+  hash?: string;
+  initData?: string;
+}
+
 export interface SessionInitRequest {
   sessionId?: string;
   referralSessionId?: string;
+  telegram?: SessionInitTelegramIdentity;
 }
 
 export interface SessionInitResponse {

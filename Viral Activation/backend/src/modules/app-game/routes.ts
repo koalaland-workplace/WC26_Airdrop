@@ -1,8 +1,14 @@
 import { randomUUID } from "node:crypto";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
+import { verifyTelegramWebAppInitData } from "../auth/telegram.js";
 import { DEFAULT_SPIN_DAILY_CAP } from "./constants.js";
-import { getOrCreateGameSession, persistGameSession, persistGameSessionWithClient } from "./store.js";
+import {
+  getOrCreateGameSession,
+  persistGameSession,
+  persistGameSessionWithClient,
+  type SessionTelegramIdentity
+} from "./store.js";
 import {
   applyKick,
   dayDiff,
@@ -22,16 +28,29 @@ import {
 } from "./state.js";
 
 const sessionIdSchema = z.string().trim().min(8).max(128);
+const telegramIdentitySchema = z
+  .object({
+    id: z.string().trim().min(5).max(20),
+    username: z.string().trim().min(2).max(64).optional(),
+    firstName: z.string().trim().min(1).max(64).optional(),
+    lastName: z.string().trim().min(1).max(64).optional(),
+    authDate: z.coerce.number().int().positive().optional(),
+    hash: z.string().trim().min(8).max(256).optional(),
+    initData: z.string().trim().min(8).max(4096).optional()
+  })
+  .optional();
 
 const initSessionBodySchema = z.object({
   sessionId: z.string().trim().optional(),
-  referralSessionId: z.string().trim().optional()
+  referralSessionId: z.string().trim().optional(),
+  telegram: telegramIdentitySchema
 });
 
 const syncSessionBodySchema = z.object({
   sessionId: sessionIdSchema,
   kick: z.number().optional(),
-  dailyEarned: z.number().optional()
+  dailyEarned: z.number().optional(),
+  telegram: telegramIdentitySchema
 });
 
 const querySessionSchema = z.object({
@@ -121,6 +140,40 @@ function boostsView(view: ReturnType<typeof sessionView>) {
   return {
     quizBoostMult: view.quizBoostMult,
     refBoostMult: view.refBoostMult
+  };
+}
+
+function normalizeSessionTelegramIdentity(
+  telegram: z.infer<typeof telegramIdentitySchema>,
+  app: Parameters<FastifyPluginAsync>[0]
+): SessionTelegramIdentity | null {
+  if (!telegram) return null;
+
+  const fallbackId = String(telegram.id ?? "").trim();
+  if (!/^\d{5,20}$/.test(fallbackId)) return null;
+
+  if (telegram.initData) {
+    const verified = verifyTelegramWebAppInitData(
+      telegram.initData,
+      app.appConfig.telegramBotToken,
+      app.appConfig.requireTelegramSignature
+    );
+    if (verified) {
+      return {
+        telegramId: verified.id,
+        username: verified.username ?? null,
+        firstName: verified.firstName ?? null,
+        lastName: verified.lastName ?? null
+      };
+    }
+  }
+
+  if (app.appConfig.requireTelegramSignature) return null;
+  return {
+    telegramId: fallbackId,
+    username: telegram.username ?? null,
+    firstName: telegram.firstName ?? null,
+    lastName: telegram.lastName ?? null
   };
 }
 
@@ -557,27 +610,42 @@ export const appGameRoutes: FastifyPluginAsync = async (app) => {
 
   app.post("/api/session/init", async (request) => {
     const body = initSessionBodySchema.parse(request.body ?? {});
+    const telegramIdentity = normalizeSessionTelegramIdentity(body.telegram, app);
     const session = await getOrCreateGameSession(
       app.prisma,
       body.sessionId ?? null,
-      body.referralSessionId ?? null
+      body.referralSessionId ?? null,
+      telegramIdentity
     );
     ensureToday(session.state);
     await persistGameSession(app.prisma, session);
     return {
       ok: true,
-      state: sessionView(session.state)
+      state: {
+        ...sessionView(session.state),
+        profile: {
+          telegramId: session.user.telegramId ?? null,
+          username: session.user.username ?? null
+        }
+      }
     };
   });
 
   app.post("/api/session/sync", async (request) => {
     const body = syncSessionBodySchema.parse(request.body ?? {});
-    const session = await getOrCreateGameSession(app.prisma, body.sessionId);
+    const telegramIdentity = normalizeSessionTelegramIdentity(body.telegram, app);
+    const session = await getOrCreateGameSession(app.prisma, body.sessionId, null, telegramIdentity);
     ensureToday(session.state);
     await persistGameSession(app.prisma, session);
     return {
       ok: true,
-      state: sessionView(session.state)
+      state: {
+        ...sessionView(session.state),
+        profile: {
+          telegramId: session.user.telegramId ?? null,
+          username: session.user.username ?? null
+        }
+      }
     };
   });
 
