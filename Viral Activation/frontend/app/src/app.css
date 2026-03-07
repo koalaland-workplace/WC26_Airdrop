@@ -1072,7 +1072,7 @@ a {
   display: flex;
   flex-direction: column;
   background: transparent;
-  gap: 8px;
+  gap: 7px;
 }
 
 .pulse-post {
@@ -1080,24 +1080,24 @@ a {
   border-radius: 10px;
   border: 1px solid var(--br2);
   background: var(--bg3);
-  padding: 10px;
+  padding: 8px 9px;
 }
 
 .pulse-head {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 
 .pulse-avatar {
-  width: 32px;
-  height: 32px;
+  width: 21px;
+  height: 21px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 10px;
   background: #1d9bf0;
   color: #fff;
   flex-shrink: 0;
@@ -1111,11 +1111,11 @@ a {
 .pulse-name {
   font-family: var(--font-body);
   font-weight: 700;
-  font-size: 12px;
+  font-size: 10px;
   color: #e7e9ea;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   flex-wrap: wrap;
 }
 
@@ -1128,18 +1128,31 @@ a {
 }
 
 .pulse-tag {
-  font-size: 9px;
+  font-size: 8px;
   margin-top: 1px;
 }
 
 .pulse-main {
-  margin-left: 40px;
+  margin-left: 29px;
 }
 
 .pulse-body {
-  font-size: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  font-size: 10px;
   color: #e7e9ea;
-  line-height: 1.42;
+  line-height: 1.32;
+}
+
+.pulse-alert-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  line-height: 1;
+  margin-top: 2px;
+  flex-shrink: 0;
 }
 
 .pulse-impact {
@@ -1177,7 +1190,7 @@ a {
 }
 
 .pulse-hot-item {
-  padding: 8px 9px;
+  padding: 7px 8px;
   border: 1px solid #2f3336;
   border-radius: 10px;
   background: #0f1115;
@@ -1191,14 +1204,17 @@ a {
 }
 
 .pulse-hot-title {
-  font-size: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  font-size: 10px;
   color: #e7e9ea;
-  line-height: 1.35;
+  line-height: 1.3;
   flex: 1;
 }
 
 .pulse-hot-time {
-  font-size: 10px;
+  font-size: 8px;
   color: #71767b;
   white-space: nowrap;
 }
@@ -1209,17 +1225,40 @@ a {
 }
 
 .home-hot-list .pulse-hot-title {
-  font-size: 11px;
+  font-size: 9.5px;
 }
 
 .home-hot-list .pulse-hot-time {
-  font-size: 9px;
+  font-size: 7.5px;
 }
 
 .pulse-hot-meta {
-  margin-top: 5px;
-  font-size: 9px;
+  margin-top: 4px;
+  font-size: 8px;
   color: #71767b;
+  line-height: 1.32;
+}
+
+.pulse-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+  color: #8b98a5;
+  font-size: 8px;
+  line-height: 1;
+  flex-wrap: wrap;
+}
+
+.pulse-actions-compact {
+  margin-top: 5px;
+}
+
+.pulse-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  letter-spacing: 0.15px;
 }
 
 .info-top {

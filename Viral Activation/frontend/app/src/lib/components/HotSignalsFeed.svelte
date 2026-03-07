@@ -1,13 +1,12 @@
 <script lang="ts">
   import type { HotSignal } from "../modules/news/types";
-  import { impactMeta, timeAgo } from "../modules/news/utils";
+  import { timeAgo } from "../modules/news/utils";
 
   export let items: HotSignal[] = [];
 </script>
 
 <div class="pulse-feed">
   {#each items.slice(0, 5) as item (item.id)}
-    {@const meta = impactMeta(item.impact)}
     <article class="pulse-post">
       <div class="pulse-head">
         <div class="pulse-avatar sig">📡</div>
@@ -23,11 +22,18 @@
       </div>
 
       <div class="pulse-main">
-        <div class="pulse-body">🚨 {item.title}</div>
+        <div class="pulse-body">
+          <span class="pulse-alert-icon" aria-hidden="true">🚨</span>
+          <span>{item.title}</span>
+        </div>
         {#if item.summary}
           <div class="pulse-hot-meta">{item.summary}</div>
         {/if}
-        <span class={`pulse-impact ${meta.level}`}>{meta.icon} {meta.label}</span>
+        <div class="pulse-actions" aria-label="Signal actions">
+          <span class="pulse-action"><span aria-hidden="true">♡</span> Like</span>
+          <span class="pulse-action"><span aria-hidden="true">↗</span> Share</span>
+          <span class="pulse-action"><span aria-hidden="true">💬</span> Comments</span>
+        </div>
       </div>
     </article>
   {/each}
