@@ -113,12 +113,14 @@
   $: refBoostLabel =
     spinBoosts.refBoostMult > 1 ? `Active · ${spinBoosts.refBoostMult}x` : "Inactive";
 
-  $: disableRoll = $spinStore.isRolling || spinState.left <= 0;
-  $: primarySpinText = $spinStore.isRolling
-    ? "SPINNING..."
-    : spinState.left > 0
-      ? "SPIN NOW"
-      : "COME BACK TOMORROW";
+  $: disableRoll = !sessionId || $spinStore.isRolling || spinState.left <= 0;
+  $: primarySpinText = !sessionId
+    ? "CONNECTING..."
+    : $spinStore.isRolling
+      ? "SPINNING..."
+      : spinState.left > 0
+        ? "SPIN NOW"
+        : "COME BACK TOMORROW";
 
   $: if (sessionId && $spinStore.status === "idle") {
     void spinStore.refresh(sessionId);
@@ -359,12 +361,23 @@
   }
 
   async function unlockSpin(type: SpinUnlockType): Promise<void> {
-    if (!sessionId || $spinStore.isRolling || capReached) return;
+    if ($spinStore.isRolling || capReached) return;
+
+    let activeSessionId = sessionId;
+    if (!activeSessionId) {
+      activeSessionId = await sessionStore.init(true);
+      if (!activeSessionId) {
+        const message = "Session is not ready. Please reopen the app and try again.";
+        spinStore.setError(message);
+        popup(message, false);
+        return;
+      }
+    }
 
     spinStore.setError(null);
 
     try {
-      const unlock = await spinStore.unlock(sessionId, type);
+      const unlock = await spinStore.unlock(activeSessionId, type);
       if (type === "invite") {
         if (unlock.inviteBonus?.verified) {
           popup(formatUnlockMessage(type), true);
@@ -386,7 +399,20 @@
   }
 
   async function rollNow(): Promise<void> {
-    if (!sessionId || $spinStore.isRolling) return;
+    if ($spinStore.isRolling) return;
+
+    let activeSessionId = sessionId;
+    if (!activeSessionId) {
+      activeSessionId = await sessionStore.init(true);
+      if (!activeSessionId) {
+        const message = "Session is not ready. Please reopen the app and try again.";
+        spinStore.setResult(message, false);
+        spinStore.setError(message);
+        popup(message, false);
+        return;
+      }
+      await spinStore.refresh(activeSessionId, true);
+    }
 
     if (spinState.left <= 0) {
       const message = "No spins left for today.";
@@ -400,7 +426,7 @@
     spinStore.setResult("Spinning...", false);
 
     try {
-      const roll = await spinStore.roll(sessionId, false);
+      const roll = await spinStore.roll(activeSessionId, false);
       const targetAngle = getSpinTargetAngle($spinStore.wheelAngle, roll.reward.id, 6);
 
       await animateWheel(targetAngle, 4200);
