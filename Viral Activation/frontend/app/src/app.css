@@ -880,8 +880,11 @@ a {
 }
 
 .home-journey-cell {
-  padding: 5px 9px 4px;
-  min-height: 39px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 3px 9px;
+  min-height: 27px;
 }
 
 .home-journey-cell + .home-journey-cell {
@@ -897,27 +900,28 @@ a {
 
 .home-journey-progress {
   font-family: var(--font-mono);
-  font-size: 7.2px;
+  font-size: 9.7px;
   letter-spacing: 0.02em;
   color: var(--c-blue);
   white-space: nowrap;
+  line-height: 1.1;
 }
 
 .home-journey-label {
-  font-size: 7px;
+  font-size: 9.5px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--c-gray);
-  line-height: 1.2;
+  line-height: 1.1;
 }
 
 .home-journey-value {
-  margin-top: 2px;
+  margin-top: 1px;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 8.6px;
+  font-size: 11.6px;
   color: var(--pw);
-  line-height: 1.15;
+  line-height: 1.1;
 }
 
 .home-journey-mono {

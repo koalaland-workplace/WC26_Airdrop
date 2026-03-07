@@ -9,6 +9,7 @@
 
   const DEFAULT_TELEGRAM_BOT_USERNAME = "wc26viral_bot";
   const DEFAULT_TELEGRAM_APP_SHORT_NAME = "wc26airdrop";
+  const DEFAULT_REFERRAL_SESSION_ID = "b61ddaac-82a3-4424-bef9-4cb9d7b80f6b";
 
   export let onNavigate: (page: AppPage) => void = () => {};
 
@@ -32,7 +33,7 @@
   $: progressPct = taskTotal > 0 ? Math.round((taskDoneCount / taskTotal) * 100) : 0;
   $: earnRingOffset = 220 * (1 - Math.min(100, progressPct) / 100);
   $: inviteLink = buildInviteLink(sessionId);
-  $: inviteLinkDisplay = inviteLink ?? "Generating invite link...";
+  $: inviteLinkDisplay = inviteLink ?? "Invite link unavailable";
   $: copyInviteDisabled = !inviteLink;
 
   $: groupedTasks = $earnStore.categories
@@ -84,14 +85,16 @@
 
   function buildInviteLink(currentSessionId: string | null): string | null {
     const cleanSessionId = String(currentSessionId ?? "").trim();
-    if (!cleanSessionId) return null;
+    const fallbackSessionId = String(import.meta.env.VITE_DEFAULT_REFERRAL_SESSION_ID ?? DEFAULT_REFERRAL_SESSION_ID).trim();
+    const startAppSessionId = cleanSessionId || fallbackSessionId;
+    if (!startAppSessionId) return null;
 
     const botUsername =
       normalizeTelegramValue(import.meta.env.VITE_TELEGRAM_BOT_USERNAME) ?? DEFAULT_TELEGRAM_BOT_USERNAME;
     const appShortName =
       normalizeTelegramValue(import.meta.env.VITE_TELEGRAM_APP_SHORT_NAME) ?? DEFAULT_TELEGRAM_APP_SHORT_NAME;
 
-    return `https://t.me/${botUsername}/${appShortName}?startapp=${encodeURIComponent(cleanSessionId)}`;
+    return `https://t.me/${botUsername}/${appShortName}?startapp=${encodeURIComponent(startAppSessionId)}`;
   }
 
   async function copyInviteLink(): Promise<void> {

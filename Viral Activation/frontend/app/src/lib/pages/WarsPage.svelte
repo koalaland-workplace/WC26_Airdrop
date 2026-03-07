@@ -173,7 +173,6 @@
 
   async function startPvp(): Promise<void> {
     if (!sessionId) return;
-    if (!selectedQueueId && queuePlayers.length === 0) return;
     await penaltyStore.start(sessionId, "pvp", selectedQueueId || undefined);
   }
 
@@ -1699,7 +1698,7 @@
           <button class="btn b-g" type="button" on:click={startSolo} disabled={$penaltyStore.isBusy || !sessionId}>
             {$penaltyStore.isBusy ? "PREPARING..." : "START SOLO"}
           </button>
-          <button class="btn b-r" type="button" on:click={startPvp} disabled={$penaltyStore.isBusy || !sessionId || queuePlayers.length === 0}>
+          <button class="btn b-r" type="button" on:click={startPvp} disabled={$penaltyStore.isBusy || !sessionId}>
             START PVP
           </button>
         </div>

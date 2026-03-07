@@ -1,4 +1,15 @@
-const RAW_API_BASE = String(import.meta.env.VITE_API_BASE ?? "").trim();
+const DEFAULT_PROD_API_BASE = "https://api.wc26nft.com";
+
+function resolveApiBaseFallback(): string {
+  if (typeof window === "undefined") return "";
+  const host = window.location.hostname.trim().toLowerCase();
+  if (host === "app.wc26nft.com" || host.endsWith(".wc26nft.com")) {
+    return DEFAULT_PROD_API_BASE;
+  }
+  return "";
+}
+
+const RAW_API_BASE = String(import.meta.env.VITE_API_BASE ?? "").trim() || resolveApiBaseFallback();
 const API_BASE = RAW_API_BASE.replace(/\/+$/, "");
 
 interface HttpErrorPayload {
