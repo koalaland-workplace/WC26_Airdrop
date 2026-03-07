@@ -3147,7 +3147,7 @@ a {
 .ref-invite-label {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 12px;
+  font-size: 9px;
   color: var(--pw);
   letter-spacing: 0.8px;
   text-transform: uppercase;
@@ -3172,6 +3172,10 @@ a {
   padding: 7px 12px;
   font-size: 9px;
   letter-spacing: 0.55px;
+}
+
+.ref-box .info-actions-grid .btn {
+  font-size: 9.8px;
 }
 
 .ref-copy-btn:disabled {
