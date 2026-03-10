@@ -4,6 +4,7 @@
   import { quizStore } from "../stores/quiz.store";
   import { sessionStore } from "../stores/session.store";
   import type { AppPage } from "../stores/ui.store";
+  import type { QuizSubmitOutcome } from "../stores/quiz.store";
 
   export let onNavigate: (page: AppPage) => void = () => {};
 
@@ -11,6 +12,12 @@
   let timerId: ReturnType<typeof setInterval> | null = null;
   let activeQuestionToken = "";
   let isSubmitting = false;
+  let audioCtx: AudioContext | null = null;
+  let rewardPulseVisible = false;
+  let rewardPulseId = 0;
+  let rewardDelta = 0;
+  let rewardLabel = "";
+  let rewardParticles: Array<{ id: number; style: string }> = [];
 
   $: sessionId = $sessionStore.sessionId;
   $: quiz = $quizStore;
@@ -61,6 +68,78 @@
     }, 1000);
   }
 
+  function ensureAudioContext(): AudioContext | null {
+    if (typeof window === "undefined") return null;
+    if (!audioCtx) {
+      const Ctx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) return null;
+      audioCtx = new Ctx();
+    }
+    if (audioCtx.state === "suspended") {
+      void audioCtx.resume();
+    }
+    return audioCtx;
+  }
+
+  function playTone(frequency: number, durationSec: number, volume: number, delaySec = 0): void {
+    const ctx = ensureAudioContext();
+    if (!ctx) return;
+    try {
+      const startAt = ctx.currentTime + delaySec;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(frequency, startAt);
+      gain.gain.setValueAtTime(volume, startAt);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startAt + durationSec);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startAt);
+      osc.stop(startAt + durationSec + 0.03);
+    } catch {
+      // Ignore transient browser audio errors.
+    }
+  }
+
+  function playCorrectAnswerFx(isBigReward: boolean): void {
+    playTone(523, 0.12, 0.055, 0);
+    playTone(659, 0.15, 0.068, 0.07);
+    playTone(isBigReward ? 1047 : 880, 0.24, 0.085, 0.16);
+    playTone(isBigReward ? 1568 : 1319, 0.14, 0.042, 0.28);
+  }
+
+  function playWrongAnswerFx(): void {
+    playTone(240, 0.15, 0.036, 0);
+    playTone(180, 0.2, 0.03, 0.09);
+  }
+
+  function buildRewardParticles(seed: number): Array<{ id: number; style: string }> {
+    return Array.from({ length: 12 }, (_, index) => {
+      const angle = (360 / 12) * index + (seed % 15);
+      const distance = 42 + ((seed + index * 13) % 28);
+      const size = 5 + ((seed + index * 7) % 6);
+      const hue = 38 + ((seed + index * 19) % 24);
+      return {
+        id: seed * 100 + index,
+        style: `--angle:${angle}deg;--distance:${distance}px;--size:${size}px;--hue:${hue};`
+      };
+    });
+  }
+
+  function showRewardPulse(deltaApplied: number): void {
+    rewardPulseId += 1;
+    const pulseId = rewardPulseId;
+    rewardDelta = Math.max(0, deltaApplied);
+    rewardLabel = rewardDelta > 0 ? `+${rewardDelta.toLocaleString("en-US")} KICK` : "CORRECT";
+    rewardParticles = buildRewardParticles(pulseId);
+    rewardPulseVisible = true;
+
+    window.setTimeout(() => {
+      if (rewardPulseId !== pulseId) return;
+      rewardPulseVisible = false;
+    }, 1350);
+  }
+
   async function answer(choice: number): Promise<void> {
     if (!sessionId || !currentQuestion || isSubmitting || currentAnswer) return;
 
@@ -68,7 +147,8 @@
     stopTimer();
 
     try {
-      await quizStore.submitAnswer(sessionId, currentQuestion.index, choice);
+      const outcome = await quizStore.submitAnswer(sessionId, currentQuestion.index, choice);
+      triggerAnswerFx(outcome);
       await new Promise<void>((resolve) => {
         setTimeout(() => resolve(), 480);
       });
@@ -84,8 +164,21 @@
     return "";
   }
 
+  function triggerAnswerFx(outcome: QuizSubmitOutcome | null): void {
+    if (!outcome) return;
+    if (outcome.answer.correct) {
+      playCorrectAnswerFx(outcome.answer.deltaApplied >= 100);
+      showRewardPulse(outcome.answer.deltaApplied);
+      return;
+    }
+    playWrongAnswerFx();
+  }
+
   onDestroy(() => {
     stopTimer();
+    if (audioCtx && audioCtx.state !== "closed") {
+      void audioCtx.close();
+    }
   });
 </script>
 
@@ -111,6 +204,15 @@
 
   {#if !quiz.completedToday && currentQuestion}
     <div class="qcard acc-g">
+      {#if rewardPulseVisible}
+        <div class="quiz-reward-burst" aria-hidden="true">
+          <div class="quiz-reward-core"></div>
+          {#each rewardParticles as particle (particle.id)}
+            <span class="quiz-reward-particle" style={particle.style}></span>
+          {/each}
+          <div class="quiz-reward-badge">{rewardLabel}</div>
+        </div>
+      {/if}
       <div class={`qdiff ${difficultyMeta(currentQuestion.diff).className}`}>
         {difficultyMeta(currentQuestion.diff).badge} · +{currentQuestion.pts} KICK
       </div>
