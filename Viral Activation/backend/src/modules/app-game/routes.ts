@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { verifyTelegramWebAppInitData } from "../auth/telegram.js";
-import { DEFAULT_SPIN_DAILY_CAP, SHARE_KICK, SHARE_DAILY_CAP, WELCOME_BONUS, REFERRAL_L1_KICK, REFERRAL_L2_KICK, REFERRAL_MILESTONES, getStreakMultiplier } from "./constants.js";
+import { DEFAULT_SPIN_DAILY_CAP, SHARE_KICK, SHARE_DAILY_CAP, WELCOME_BONUS, REFERRAL_L1_KICK, REFERRAL_L2_KICK, REFERRAL_MILESTONES, getStreakMultiplier, FLASH_EVENT_REDIS_KEY, FLASH_EVENT_DEFAULT_MULTIPLIER, FLASH_EVENT_DEFAULT_DURATION_HOURS, type FlashEventData } from "./constants.js";
 import {
   getOrCreateGameSession,
   persistGameSession,
@@ -147,6 +147,13 @@ const squadJoinSchema = z.object({
 
 const onboardingCompleteSchema = z.object({
   sessionId: sessionIdSchema
+});
+
+const flashEventCreateSchema = z.object({
+  title: z.string().trim().min(3).max(100),
+  multiplier: z.coerce.number().min(1.5).max(10).default(FLASH_EVENT_DEFAULT_MULTIPLIER),
+  durationHours: z.coerce.number().min(0.5).max(24).default(FLASH_EVENT_DEFAULT_DURATION_HOURS),
+  adminKey: z.string().trim().min(1) // simple admin auth
 });
 
 function economyView(kick: number, dailyEarned: number) {
@@ -1967,5 +1974,79 @@ export const appGameRoutes: FastifyPluginAsync = async (app) => {
         kickAwarded: applied,
         economy: economyView(view.kick, view.dailyEarned)
       });
+    });
+
+    // ── Flash Events ──────────────────────────────────
+    app.post("/api/admin/flash-event", async (req, reply) => {
+      const body = flashEventCreateSchema.parse(req.body);
+
+      // Simple admin key check (use telegramBotToken as admin secret)
+      if (body.adminKey !== app.appConfig.telegramBotToken) {
+        return reply.code(403).send({ ok: false, reason: "unauthorized" });
+      }
+
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + body.durationHours * 60 * 60 * 1000);
+
+      const eventData: FlashEventData = {
+        id: randomUUID().slice(0, 8),
+        title: body.title,
+        multiplier: body.multiplier,
+        startedAt: now.toISOString(),
+        expiresAt: expiresAt.toISOString(),
+        createdBy: "admin"
+      };
+
+      const ttlSeconds = Math.ceil(body.durationHours * 3600);
+      await app.pendingStore.set(FLASH_EVENT_REDIS_KEY, JSON.stringify(eventData), ttlSeconds);
+
+      // Record live activity
+      await app.prisma.liveActivity.create({
+        data: {
+          type: "flash_event",
+          detail: body.title,
+          amount: body.multiplier
+        }
+      });
+
+      return reply.send({ ok: true, event: eventData });
+    });
+
+    app.get("/api/flash-event/active", async (_req, reply) => {
+      const raw = await app.pendingStore.get(FLASH_EVENT_REDIS_KEY);
+      if (!raw) {
+        return reply.send({ ok: true, active: false, event: null });
+      }
+
+      try {
+        const event: FlashEventData = JSON.parse(raw);
+        const now = Date.now();
+        const expiresAt = new Date(event.expiresAt).getTime();
+
+        if (now >= expiresAt) {
+          await app.pendingStore.del(FLASH_EVENT_REDIS_KEY);
+          return reply.send({ ok: true, active: false, event: null });
+        }
+
+        return reply.send({
+          ok: true,
+          active: true,
+          event: {
+            ...event,
+            remainingSeconds: Math.ceil((expiresAt - now) / 1000)
+          }
+        });
+      } catch {
+        return reply.send({ ok: true, active: false, event: null });
+      }
+    });
+
+    app.delete("/api/admin/flash-event", async (req, reply) => {
+      const query = z.object({ adminKey: z.string().min(1) }).parse(req.query);
+      if (query.adminKey !== app.appConfig.telegramBotToken) {
+        return reply.code(403).send({ ok: false, reason: "unauthorized" });
+      }
+      await app.pendingStore.del(FLASH_EVENT_REDIS_KEY);
+      return reply.send({ ok: true });
     });
 };

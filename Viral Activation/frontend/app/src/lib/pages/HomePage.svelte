@@ -18,6 +18,7 @@
   import StreakCounter from "../components/StreakCounter.svelte";
   import ShareButton from "../components/ShareButton.svelte";
   import LiveFeed from "../components/LiveFeed.svelte";
+  import FlashEventBanner from "../components/FlashEventBanner.svelte";
 
   export let onNavigate: (page: AppPage) => void = () => {};
   export let onOpenInfoTab: (tab: InfoTab) => void = () => {};
@@ -232,6 +233,8 @@
     <div class="home-war-delta">{HOME_HERO_SNAPSHOT.warDelta} ↑</div>
     <div class="home-fans">👥 {formatFans(HOME_HERO_SNAPSHOT.liveFans)} fans playing now</div>
   </div>
+
+  <FlashEventBanner />
 
   {#if latestAnnouncement}
     <div class="card acc-y home-ann-banner">

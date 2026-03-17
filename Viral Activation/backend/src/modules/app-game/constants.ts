@@ -37,6 +37,20 @@ export function getStreakMultiplier(streakDays: number): number {
   return mult;
 }
 
+// ── Flash Event Constants ─────────────────────────────
+export const FLASH_EVENT_REDIS_KEY = "wc26:flash_event";
+export const FLASH_EVENT_DEFAULT_MULTIPLIER = 2;
+export const FLASH_EVENT_DEFAULT_DURATION_HOURS = 2;
+
+export interface FlashEventData {
+  id: string;
+  title: string;
+  multiplier: number;
+  startedAt: string; // ISO
+  expiresAt: string; // ISO
+  createdBy: string;
+}
+
 export const QUIZ_RULES = { easy: 2, medium: 2, hard: 1 } as const;
 
 export type SpinReward =
