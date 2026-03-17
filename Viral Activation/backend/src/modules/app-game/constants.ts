@@ -1,6 +1,41 @@
-export const DAILY_KICK_CAP = 2500;
+export const DAILY_KICK_CAP = 5000;
 export const TASK_KICK_CAP = 15000;
 export const DEFAULT_SPIN_DAILY_CAP = 10;
+
+// ── Viral Growth Constants ─────────────────────────────
+export const WELCOME_BONUS = 500;
+export const REFERRAL_L1_KICK = 500;
+export const REFERRAL_L2_KICK = 50;
+export const SHARE_KICK = 200;
+export const SHARE_DAILY_CAP = 3;
+export const SHARE_SPIN_BONUS = 1;
+
+export const REFERRAL_MILESTONES: Record<number, number> = {
+  5: 2_000,
+  20: 10_000,
+  50: 25_000,
+  100: 50_000,
+};
+
+export const STREAK_MULTIPLIERS: Record<number, number> = {
+  1: 1,
+  2: 1,
+  3: 1.5,
+  4: 1.5,
+  5: 1.5,
+  6: 1.5,
+  7: 2,
+  14: 3,
+  30: 5,
+};
+
+export function getStreakMultiplier(streakDays: number): number {
+  let mult = 1;
+  for (const [day, m] of Object.entries(STREAK_MULTIPLIERS)) {
+    if (streakDays >= Number(day)) mult = m;
+  }
+  return mult;
+}
 
 export const QUIZ_RULES = { easy: 2, medium: 2, hard: 1 } as const;
 

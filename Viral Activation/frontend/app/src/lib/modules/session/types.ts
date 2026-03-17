@@ -23,6 +23,18 @@ export interface SessionReferralState {
   f2Active7: number;
 }
 
+export interface SessionShareState {
+  day: string;
+  count: number;
+  remaining: number;
+  kickPerShare: number;
+}
+
+export interface SessionStreakState {
+  currentDays: number;
+  multiplier: number;
+}
+
 export interface SessionViewState {
   sessionId: string;
   dayKey: string;
@@ -39,6 +51,9 @@ export interface SessionViewState {
   spin: SessionSpinState;
   penalty: SessionPenaltyState;
   referral: SessionReferralState;
+  share: SessionShareState;
+  streak: SessionStreakState;
+  onboarded: boolean;
 }
 
 export interface SessionInitTelegramIdentity {
@@ -87,4 +102,6 @@ export interface SessionSyncPayload {
   spin?: SessionSpinState;
   boosts?: SessionBoosts;
   economy?: SessionEconomy;
+  share?: SessionShareState;
+  streak?: SessionStreakState;
 }

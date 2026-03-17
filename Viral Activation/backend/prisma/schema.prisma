@@ -67,6 +67,9 @@ model AppUser {
   referralsSent    ReferralEvent[]   @relation("ReferralInviter")
   referredByEvents ReferralEvent[]   @relation("ReferralInvitee")
   missions         MissionProgress[]
+  squadCaptainOf   Squad[]           @relation("SquadCaptain")
+  squadMembership  SquadMember?
+  shareEvents      ShareEvent[]
 }
 
 model AppGameState {
@@ -217,17 +220,17 @@ model MissionProgress {
 }
 
 model SocialChannel {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   platform  String
   name      String
   url       String
   icon      String?
-  tasks     Int      @default(0)
-  kick      Int      @default(0)
-  sortOrder Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  tasks     Int       @default(0)
+  kick      Int       @default(0)
+  sortOrder Int       @default(0)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   missions  Mission[]
 
   @@index([isActive, sortOrder])
@@ -254,5 +257,54 @@ model NewsItem {
 
   @@unique([provider, providerItemId])
   @@index([publishedAt])
+  @@index([createdAt])
+}
+
+model Squad {
+  id         String        @id @default(cuid())
+  name       String
+  captainId  String
+  nationCode String        @default("VN")
+  totalKick  Int           @default(0)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  captain    AppUser       @relation("SquadCaptain", fields: [captainId], references: [id], onDelete: Cascade)
+  members    SquadMember[]
+
+  @@index([totalKick])
+  @@index([nationCode])
+}
+
+model SquadMember {
+  id       String   @id @default(cuid())
+  squadId  String
+  userId   String   @unique
+  joinedAt DateTime @default(now())
+  squad    Squad    @relation(fields: [squadId], references: [id], onDelete: Cascade)
+  user     AppUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([squadId])
+}
+
+model ShareEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  kickAward Int      @default(0)
+  createdAt DateTime @default(now())
+  user      AppUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model LiveActivity {
+  id        String   @id @default(cuid())
+  userId    String?
+  username  String?
+  type      String
+  detail    String?
+  amount    Int      @default(0)
+  createdAt DateTime @default(now())
+
   @@index([createdAt])
 }

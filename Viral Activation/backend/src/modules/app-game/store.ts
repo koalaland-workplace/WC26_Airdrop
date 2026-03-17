@@ -18,7 +18,7 @@ export interface SessionTelegramIdentity {
 
 type PrismaStoreClient = Pick<
   PrismaClient,
-  "appGameState" | "appUser" | "referralEvent" | "kickLedger"
+  "appGameState" | "appUser" | "referralEvent" | "kickLedger" | "squadMember" | "squad"
 >;
 
 interface LedgerWrite {
@@ -417,4 +417,26 @@ export async function syncReferralCounters(
   state.referral.f1Active7 = f1Active7;
   state.referral.f2Registered = f2Registered;
   state.referral.f2Active7 = f2Active7;
+}
+
+export async function syncSquadKick(
+  prisma: PrismaStoreClient,
+  userId: string
+): Promise<void> {
+  const membership = await prisma.squadMember.findUnique({
+    where: { userId },
+    select: { squadId: true }
+  });
+  if (!membership) return;
+
+  const result = await prisma.squadMember.findMany({
+    where: { squadId: membership.squadId },
+    include: { user: { select: { kick: true } } }
+  });
+
+  const totalKick = result.reduce((sum, m) => sum + m.user.kick, 0);
+  await prisma.squad.update({
+    where: { id: membership.squadId },
+    data: { totalKick }
+  });
 }

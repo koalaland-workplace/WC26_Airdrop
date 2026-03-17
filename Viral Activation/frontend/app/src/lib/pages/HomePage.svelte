@@ -12,13 +12,21 @@
   import { sessionStore } from "../stores/session.store";
   import { spinStore } from "../stores/spin.store";
   import { updatedLabel } from "../modules/news/utils";
+  import { verifyShare } from "../modules/share/api";
+  import { completeOnboarding } from "../modules/onboarding/api";
   import HotSignalsCompact from "../components/HotSignalsCompact.svelte";
+  import StreakCounter from "../components/StreakCounter.svelte";
+  import ShareButton from "../components/ShareButton.svelte";
+  import LiveFeed from "../components/LiveFeed.svelte";
 
   export let onNavigate: (page: AppPage) => void = () => {};
   export let onOpenInfoTab: (tab: InfoTab) => void = () => {};
 
   let countdownDays = daysUntilKickoff();
   let ticker: ReturnType<typeof setInterval> | null = null;
+  let streakDays = 0;
+  let streakMultiplier = 1;
+  let shareRemaining = 3;
   let directReferralF1 = 0;
   let indirectReferralF2 = 0;
   let syncedReferralSessionId = "";
@@ -138,12 +146,36 @@
     })();
 
     void hotSignalsStore.refresh(5, true, $languageStore.current);
+
+    // Auto-onboarding: award welcome bonus on first visit
+    void (async () => {
+      const sid = $sessionStore.sessionId;
+      if (!sid) return;
+      try {
+        const res = await completeOnboarding(sid);
+        if (res.ok && !res.alreadyOnboarded && res.economy) {
+          sessionStore.sync({ economy: res.economy });
+        }
+      } catch { /* ignore */ }
+    })();
   });
 
   onDestroy(() => {
     if (ticker) clearInterval(ticker);
     if (telegramHandleResolveTimer) clearTimeout(telegramHandleResolveTimer);
   });
+
+  async function handleShare(type: string) {
+    const sid = $sessionStore.sessionId;
+    if (!sid) return;
+    try {
+      const res = await verifyShare(sid, type as "story" | "quiz_result" | "penalty_win");
+      if (res.ok && res.economy) {
+        sessionStore.sync({ economy: res.economy });
+        if (res.share) shareRemaining = res.share.remaining;
+      }
+    } catch { /* ignore */ }
+  }
 
   $: hotSignals = $hotSignalsStore.items.slice(0, 5);
   $: homeHotUpdated = updatedLabel($hotSignalsStore.lastUpdatedAt);
@@ -211,6 +243,15 @@
       <div class="home-ann-message">{latestAnnouncement.message}</div>
     </div>
   {/if}
+
+  <div class="home-viral-row">
+    <StreakCounter currentDays={streakDays} multiplier={streakMultiplier} />
+    {#if shareRemaining > 0}
+      <ShareButton shareType="story" label="Share +200 KICK ({shareRemaining} left)" onShare={handleShare} />
+    {:else}
+      <div class="share-done">All shares used today</div>
+    {/if}
+  </div>
 
   <button class="spin-cta" type="button" on:click={() => onNavigate("spin")}>
     <div class="spin-cta-inner">
@@ -344,6 +385,11 @@
     </div>
     <div class="home-hot-sub">{homeHotUpdated}</div>
     <HotSignalsCompact items={hotSignals} />
+  </div>
+
+  <div class="card acc-b home-live-feed">
+    <div class="home-live-title">⚡ LIVE ACTIVITY</div>
+    <LiveFeed />
   </div>
 
   {#if latestAnnouncement && announcementPopupOpen}

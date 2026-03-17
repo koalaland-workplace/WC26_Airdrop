@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { verifyTelegramWebAppInitData } from "../auth/telegram.js";
-import { DEFAULT_SPIN_DAILY_CAP } from "./constants.js";
+import { DEFAULT_SPIN_DAILY_CAP, SHARE_KICK, SHARE_DAILY_CAP, WELCOME_BONUS, REFERRAL_L1_KICK, REFERRAL_L2_KICK, REFERRAL_MILESTONES, getStreakMultiplier } from "./constants.js";
 import {
   getOrCreateGameSession,
   persistGameSession,
@@ -24,6 +24,7 @@ import {
   sessionView,
   spinCap,
   spinLeft,
+  processShare,
   type PenaltyMatchState
 } from "./state.js";
 
@@ -126,6 +127,25 @@ const quizAnswerSchema = z.object({
 });
 
 const quizFinalizeSchema = z.object({
+  sessionId: sessionIdSchema
+});
+
+const shareVerifySchema = z.object({
+  sessionId: sessionIdSchema,
+  type: z.enum(["story", "quiz_result", "penalty_win"])
+});
+
+const squadCreateSchema = z.object({
+  sessionId: sessionIdSchema,
+  name: z.string().trim().min(2).max(50)
+});
+
+const squadJoinSchema = z.object({
+  sessionId: sessionIdSchema,
+  squadId: z.string().trim().min(1)
+});
+
+const onboardingCompleteSchema = z.object({
   sessionId: sessionIdSchema
 });
 
@@ -1653,4 +1673,299 @@ export const appGameRoutes: FastifyPluginAsync = async (app) => {
       economy: economyView(session.state.kick, session.state.economy.dailyEarned)
     };
   });
+
+    // ── Share-to-Earn ──────────────────────────────────
+    app.post("/api/share/verify", async (req, reply) => {
+      const body = shareVerifySchema.parse(req.body);
+      const session = await getOrCreateGameSession(app.prisma, body.sessionId);
+      ensureToday(session.state);
+
+      if (session.state.share.count >= SHARE_DAILY_CAP) {
+        return reply.code(200).send({
+          ok: false,
+          reason: "daily_cap",
+          share: { count: session.state.share.count, remaining: 0 }
+        });
+      }
+
+      const result = processShare(session.state, body.type);
+      await persistGameSession(app.prisma, session, {
+        delta: result.kick,
+        reason: `share:${body.type}`,
+        source: "share"
+      });
+
+      // Record share event
+      await app.prisma.shareEvent.create({
+        data: {
+          userId: session.user.id,
+          type: body.type,
+          kickAward: result.kick
+        }
+      });
+
+      // Record live activity
+      await app.prisma.liveActivity.create({
+        data: {
+          userId: session.user.id,
+          username: session.user.username,
+          type: "share",
+          detail: body.type,
+          amount: result.kick
+        }
+      });
+
+      const view = sessionView(session.state);
+      return reply.send({
+        ok: true,
+        kickAwarded: result.kick,
+        bonusSpin: result.bonusSpin,
+        share: view.share,
+        economy: economyView(view.kick, view.dailyEarned),
+        spin: view.spin
+      });
+    });
+
+    // ── Squad System ──────────────────────────────────
+    app.post("/api/squad/create", async (req, reply) => {
+      const body = squadCreateSchema.parse(req.body);
+      const session = await getOrCreateGameSession(app.prisma, body.sessionId);
+
+      // Check if user already has a squad
+      const existing = await app.prisma.squadMember.findUnique({
+        where: { userId: session.user.id }
+      });
+      if (existing) {
+        return reply.code(400).send({ ok: false, reason: "already_in_squad" });
+      }
+
+      const squad = await app.prisma.squad.create({
+        data: {
+          name: body.name,
+          captainId: session.user.id,
+          nationCode: session.state.nation.code
+        }
+      });
+
+      await app.prisma.squadMember.create({
+        data: {
+          squadId: squad.id,
+          userId: session.user.id
+        }
+      });
+
+      return reply.send({
+        ok: true,
+        squad: {
+          id: squad.id,
+          name: squad.name,
+          captainId: squad.captainId,
+          nationCode: squad.nationCode,
+          memberCount: 1
+        }
+      });
+    });
+
+    app.post("/api/squad/join", async (req, reply) => {
+      const body = squadJoinSchema.parse(req.body);
+      const session = await getOrCreateGameSession(app.prisma, body.sessionId);
+
+      const existing = await app.prisma.squadMember.findUnique({
+        where: { userId: session.user.id }
+      });
+      if (existing) {
+        return reply.code(400).send({ ok: false, reason: "already_in_squad" });
+      }
+
+      const squad = await app.prisma.squad.findUnique({
+        where: { id: body.squadId },
+        include: { _count: { select: { members: true } } }
+      });
+      if (!squad) {
+        return reply.code(404).send({ ok: false, reason: "squad_not_found" });
+      }
+      if (squad._count.members >= 5) {
+        return reply.code(400).send({ ok: false, reason: "squad_full" });
+      }
+
+      await app.prisma.squadMember.create({
+        data: {
+          squadId: body.squadId,
+          userId: session.user.id
+        }
+      });
+
+      return reply.send({
+        ok: true,
+        squad: {
+          id: squad.id,
+          name: squad.name,
+          captainId: squad.captainId,
+          nationCode: squad.nationCode,
+          memberCount: squad._count.members + 1
+        }
+      });
+    });
+
+    app.get("/api/squad/leaderboard", async (_req, reply) => {
+      const squads = await app.prisma.squad.findMany({
+        orderBy: { totalKick: "desc" },
+        take: 50,
+        include: {
+          captain: { select: { username: true } },
+          _count: { select: { members: true } }
+        }
+      });
+
+      return reply.send({
+        ok: true,
+        squads: squads.map((s) => ({
+          id: s.id,
+          name: s.name,
+          captainUsername: s.captain.username,
+          nationCode: s.nationCode,
+          totalKick: s.totalKick,
+          memberCount: s._count.members
+        }))
+      });
+    });
+
+    app.get("/api/squad/my", async (req, reply) => {
+      const query = querySessionSchema.parse(req.query);
+      const session = await getOrCreateGameSession(app.prisma, query.sessionId);
+
+      const membership = await app.prisma.squadMember.findUnique({
+        where: { userId: session.user.id },
+        include: {
+          squad: {
+            include: {
+              captain: { select: { username: true } },
+              members: {
+                include: { user: { select: { username: true, kick: true, nationCode: true } } }
+              }
+            }
+          }
+        }
+      });
+
+      if (!membership) {
+        return reply.send({ ok: true, squad: null });
+      }
+
+      return reply.send({
+        ok: true,
+        squad: {
+          id: membership.squad.id,
+          name: membership.squad.name,
+          captainId: membership.squad.captainId,
+          captainUsername: membership.squad.captain.username,
+          nationCode: membership.squad.nationCode,
+          totalKick: membership.squad.totalKick,
+          members: membership.squad.members.map((m) => ({
+            username: m.user.username,
+            kick: m.user.kick,
+            nationCode: m.user.nationCode,
+            joinedAt: m.joinedAt
+          }))
+        }
+      });
+    });
+
+    // ── Public Leaderboard ──────────────────────────────
+    app.get("/api/leaderboard/public", async (_req, reply) => {
+      const [topPlayers, nationStats] = await Promise.all([
+        app.prisma.appUser.findMany({
+          where: { status: "active" },
+          orderBy: { kick: "desc" },
+          take: 100,
+          select: { username: true, kick: true, nationCode: true }
+        }),
+        app.prisma.appUser.groupBy({
+          by: ["nationCode"],
+          _sum: { kick: true },
+          _count: true,
+          orderBy: { _sum: { kick: "desc" } }
+        })
+      ]);
+
+      return reply.send({
+        ok: true,
+        players: topPlayers.map((p) => ({
+          username: p.username,
+          kick: p.kick,
+          nationCode: p.nationCode
+        })),
+        nations: nationStats.map((n) => ({
+          nationCode: n.nationCode,
+          totalKick: n._sum.kick ?? 0,
+          playerCount: n._count
+        }))
+      });
+    });
+
+    // ── Live Activity Feed ──────────────────────────────
+    app.get("/api/stats/live", async (_req, reply) => {
+      const activities = await app.prisma.liveActivity.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 20
+      });
+
+      const [totalUsers, totalKick] = await Promise.all([
+        app.prisma.appUser.count(),
+        app.prisma.appUser.aggregate({ _sum: { kick: true } })
+      ]);
+
+      return reply.send({
+        ok: true,
+        activities: activities.map((a) => ({
+          type: a.type,
+          username: a.username,
+          detail: a.detail,
+          amount: a.amount,
+          createdAt: a.createdAt
+        })),
+        globalStats: {
+          totalUsers,
+          totalKickDistributed: totalKick._sum.kick ?? 0
+        }
+      });
+    });
+
+    // ── Onboarding Complete ──────────────────────────────
+    app.post("/api/onboarding/complete", async (req, reply) => {
+      const body = onboardingCompleteSchema.parse(req.body);
+      const session = await getOrCreateGameSession(app.prisma, body.sessionId);
+
+      if (session.state.onboarded) {
+        return reply.send({ ok: true, alreadyOnboarded: true, kick: 0 });
+      }
+
+      session.state.onboarded = true;
+      const applied = applyKick(session.state, WELCOME_BONUS);
+      await persistGameSession(app.prisma, session, {
+        delta: applied,
+        reason: "welcome_bonus",
+        source: "onboarding"
+      });
+
+      if (applied > 0) {
+        await app.prisma.liveActivity.create({
+          data: {
+            userId: session.user.id,
+            username: session.user.username,
+            type: "welcome",
+            detail: "joined",
+            amount: applied
+          }
+        });
+      }
+
+      const view = sessionView(session.state);
+      return reply.send({
+        ok: true,
+        alreadyOnboarded: false,
+        kickAwarded: applied,
+        economy: economyView(view.kick, view.dailyEarned)
+      });
+    });
 };

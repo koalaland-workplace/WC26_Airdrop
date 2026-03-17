@@ -1,10 +1,15 @@
 import {
   DAILY_KICK_CAP,
   DEFAULT_SPIN_DAILY_CAP,
+  getStreakMultiplier,
   QUIZ_BANK,
   QUIZ_RULES,
+  SHARE_DAILY_CAP,
+  SHARE_KICK,
+  SHARE_SPIN_BONUS,
   SPIN_REWARDS,
   TASK_KICK_CAP,
+  WELCOME_BONUS,
   type QuizBankQuestion,
   type SpinReward
 } from "./constants.js";
@@ -91,6 +96,17 @@ export interface AppGameState {
     soloPlays: number;
     matches: Record<string, PenaltyMatchState>;
   };
+  share: {
+    day: string;
+    count: number;
+    history: string[]; // share type ids
+  };
+  streak: {
+    currentDays: number;
+    lastActiveDay: string;
+    multiplier: number;
+  };
+  onboarded: boolean;
 }
 
 interface SessionViewSpin {
@@ -139,6 +155,17 @@ export interface SessionView {
     claimedTaskIds: string[];
     verifiedTaskIds: string[];
   };
+  share: {
+    day: string;
+    count: number;
+    remaining: number;
+    kickPerShare: number;
+  };
+  streak: {
+    currentDays: number;
+    multiplier: number;
+  };
+  onboarded: boolean;
 }
 
 function asFiniteInt(value: unknown, fallback = 0): number {
@@ -288,7 +315,18 @@ export function createDefaultState(sessionId: string, kick = 0, nationCode = "VN
       day: today,
       soloPlays: 0,
       matches: {}
-    }
+    },
+    share: {
+      day: today,
+      count: 0,
+      history: []
+    },
+    streak: {
+      currentDays: 0,
+      lastActiveDay: "",
+      multiplier: 1
+    },
+    onboarded: false
   };
 }
 
@@ -434,7 +472,18 @@ export function mergePersistedState(
       day: String(penalty.day ?? today),
       soloPlays: Math.max(0, asFiniteInt(penalty.soloPlays, 0)),
       matches: penaltyMatches
-    }
+    },
+    share: {
+      day: String(asRecord(state.share).day ?? today),
+      count: Math.max(0, asFiniteInt(asRecord(state.share).count, 0)),
+      history: Array.isArray(asRecord(state.share).history) ? (asRecord(state.share).history as unknown[]).map((h: unknown) => String(h)) : []
+    },
+    streak: {
+      currentDays: Math.max(0, asFiniteInt(asRecord(state.streak).currentDays, 0)),
+      lastActiveDay: String(asRecord(state.streak).lastActiveDay ?? ""),
+      multiplier: Math.max(1, Number(asRecord(state.streak).multiplier ?? 1))
+    },
+    onboarded: Boolean(state.onboarded)
   };
 
   ensureToday(merged);
@@ -474,6 +523,26 @@ export function ensureToday(state: AppGameState): void {
     state.penalty.day = today;
     state.penalty.soloPlays = 0;
     state.penalty.matches = {};
+  }
+
+  if (state.share.day !== today) {
+    state.share.day = today;
+    state.share.count = 0;
+    state.share.history = [];
+  }
+
+  // Update streak
+  if (state.streak.lastActiveDay && state.streak.lastActiveDay !== today) {
+    const diff = dayDiff(state.streak.lastActiveDay, today);
+    if (diff > 1) {
+      state.streak.currentDays = 0;
+      state.streak.multiplier = 1;
+    }
+  }
+  if (state.streak.lastActiveDay !== today) {
+    state.streak.currentDays += 1;
+    state.streak.lastActiveDay = today;
+    state.streak.multiplier = getStreakMultiplier(state.streak.currentDays);
   }
 
   if (state.quiz.day !== today) {
@@ -674,6 +743,35 @@ export function sessionView(state: AppGameState): SessionView {
       claimedKick: state.earn.claimedKick,
       claimedTaskIds: Object.keys(state.earn.claimedTasks || {}),
       verifiedTaskIds: Object.keys(state.earn.verifiedTasks || {})
-    }
+    },
+    share: {
+      day: state.share.day,
+      count: state.share.count,
+      remaining: Math.max(0, SHARE_DAILY_CAP - state.share.count),
+      kickPerShare: SHARE_KICK
+    },
+    streak: {
+      currentDays: state.streak.currentDays,
+      multiplier: state.streak.multiplier
+    },
+    onboarded: state.onboarded
   };
+}
+
+export function processShare(state: AppGameState, shareType: string): { kick: number; bonusSpin: boolean } {
+  ensureToday(state);
+  if (state.share.count >= SHARE_DAILY_CAP) {
+    return { kick: 0, bonusSpin: false };
+  }
+
+  const kick = applyKick(state, SHARE_KICK);
+  state.share.count += 1;
+  state.share.history.push(shareType);
+
+  const bonusSpin = state.share.count <= SHARE_DAILY_CAP;
+  if (bonusSpin) {
+    state.spin.share += SHARE_SPIN_BONUS;
+  }
+
+  return { kick, bonusSpin };
 }
